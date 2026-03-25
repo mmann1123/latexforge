@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+*.pem
+*.key
+*.keystore
+*.jks
+*.p12
+credentials.json
+service-account*.json
+.firebase/
