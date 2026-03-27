@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 
 function sortFiles(files) {
+  const priority = ['.tex', '.bib', '.cls'];
+  const getPriority = (name) => {
+    const lower = name.toLowerCase();
+    const idx = priority.findIndex((ext) => lower.endsWith(ext));
+    return idx === -1 ? priority.length : idx;
+  };
   return [...files].sort((a, b) => {
-    const nameA = a.displayName.toLowerCase();
-    const nameB = b.displayName.toLowerCase();
-    const isTexA = nameA.endsWith('.tex') || nameA.endsWith('.bib');
-    const isTexB = nameB.endsWith('.tex') || nameB.endsWith('.bib');
-    if (isTexA && !isTexB) return -1;
-    if (!isTexA && isTexB) return 1;
-    return nameA.localeCompare(nameB);
+    const pa = getPriority(a.displayName);
+    const pb = getPriority(b.displayName);
+    if (pa !== pb) return pa - pb;
+    return a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase());
   });
 }
 
