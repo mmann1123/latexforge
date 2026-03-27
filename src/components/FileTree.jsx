@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
 
+function sortFiles(files) {
+  return [...files].sort((a, b) => {
+    const nameA = a.displayName.toLowerCase();
+    const nameB = b.displayName.toLowerCase();
+    const isTexA = nameA.endsWith('.tex') || nameA.endsWith('.bib');
+    const isTexB = nameB.endsWith('.tex') || nameB.endsWith('.bib');
+    if (isTexA && !isTexB) return -1;
+    if (!isTexA && isTexB) return 1;
+    return nameA.localeCompare(nameB);
+  });
+}
+
 function buildTree(files) {
   const root = { children: {}, files: [] };
   for (const file of files) {
@@ -49,7 +61,7 @@ function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onDeleteF
               onAddFile={(prefix) => onAddFile(name ? `${name}/${prefix}` : prefix)}
             />
           ))}
-          {node.files.map((f) => (
+          {sortFiles(node.files).map((f) => (
             <div
               key={f.id}
               className={`tree-file ${f.id === selectedFileId ? 'active' : ''}`}
@@ -100,7 +112,7 @@ export default function FileTree({ files, selectedFileId, onSelectFile, onDelete
           />
         ))}
         {/* Root-level files */}
-        {tree.files.map((f) => (
+        {sortFiles(tree.files).map((f) => (
           <div
             key={f.id}
             className={`tree-file ${f.id === selectedFileId ? 'active' : ''}`}

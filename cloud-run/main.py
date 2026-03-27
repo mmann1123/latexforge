@@ -37,7 +37,7 @@ app.add_middleware(
 
 security = HTTPBearer(auto_error=not DEV_MODE)
 
-SAFE_FILENAME = re.compile(r'^[a-zA-Z0-9_\-][a-zA-Z0-9_\-./]*\.[a-zA-Z0-9]+$')
+SAFE_FILENAME = re.compile(r'^[a-zA-Z0-9_\- ][a-zA-Z0-9_\- ./()]*\.[a-zA-Z0-9]+$')
 
 def validate_filename(name: str) -> bool:
     """Reject path traversal, absolute paths, and suspicious filenames."""
