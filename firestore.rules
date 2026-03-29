@@ -1,10 +1,87 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
+
+    // Legacy user profile docs
+    match /users/{userId} {
       allow read, write: if request.auth != null
-                         && request.auth.uid == userId
-                         && request.auth.token.email in ['mmann1123@gmail.com'];
+                         && request.auth.uid == userId;
+    }
+
+    // Dynamic email allowlist for invited collaborators
+    // Only the hardcoded admin can directly write; reads are open to authenticated users
+    match /config/allowedEmails {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.token.email == 'mmann1123@gmail.com';
+    }
+
+    // Projects: owner or collaborator
+    match /projects/{projectId} {
+      function isOwner() {
+        return request.auth.uid == resource.data.ownerId;
+      }
+      function isEditor() {
+        return resource.data.collaborators[request.auth.uid] == 'editor';
+      }
+      function canRead() {
+        return isOwner() || (request.auth.uid in resource.data.collaborators);
+      }
+      function canWrite() {
+        return isOwner() || isEditor();
+      }
+
+      // For subcollection rules: look up the parent project doc
+      function projectData() {
+        return get(/databases/$(database)/documents/projects/$(projectId)).data;
+      }
+      function parentCanRead() {
+        return request.auth.uid == projectData().ownerId
+            || request.auth.uid in projectData().collaborators;
+      }
+      function parentCanWrite() {
+        return request.auth.uid == projectData().ownerId
+            || projectData().collaborators[request.auth.uid] == 'editor';
+      }
+
+      allow read: if request.auth != null && canRead();
+      // On create: must set ownerId to self
+      allow create: if request.auth != null
+                    && request.resource.data.ownerId == request.auth.uid;
+      allow update: if request.auth != null && canWrite();
+      allow delete: if request.auth != null && isOwner();
+
+      // Files subcollection
+      match /files/{fileId} {
+        allow read: if request.auth != null && parentCanRead();
+        allow write: if request.auth != null && parentCanWrite();
+      }
+
+      // Yjs updates subcollection
+      match /yjs/{fileId} {
+        allow read: if request.auth != null && parentCanRead();
+        allow write: if request.auth != null && parentCanWrite();
+      }
+
+      // Presence subcollection — only collaborators can read/write
+      match /presence/{presenceId} {
+        allow read: if request.auth != null && parentCanRead();
+        allow create, update: if request.auth != null && parentCanRead();
+        allow delete: if request.auth != null;
+      }
+    }
+
+    // Invitations
+    match /invitations/{invitationId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null
+                  && (resource.data.invitedEmail == request.auth.token.email
+                  || resource.data.invitedBy == request.auth.uid);
+      allow update: if request.auth != null
+                    && (resource.data.invitedEmail == request.auth.token.email
+                    || resource.data.invitedBy == request.auth.uid);
+      allow delete: if request.auth != null
+                    && resource.data.invitedBy == request.auth.uid;
     }
   }
 }

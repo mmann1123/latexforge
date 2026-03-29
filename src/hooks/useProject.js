@@ -1,35 +1,57 @@
-import { useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { useState, useEffect, useCallback } from 'react';
+import { doc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config.js';
-import { getFiles } from '../firebase/firestore.js';
 
-export function useProject(userId, projectId) {
+export function useProject(projectId) {
   const [project, setProject] = useState(null);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  async function reload() {
-    if (!userId || !projectId) return;
-    setLoading(true);
-    try {
-      const projectSnap = await getDoc(
-        doc(db, 'users', userId, 'projects', projectId)
-      );
-      if (projectSnap.exists()) {
-        setProject({ id: projectSnap.id, ...projectSnap.data() });
-      }
-      const fileList = await getFiles(userId, projectId);
-      setFiles(fileList);
-    } catch (err) {
-      console.error('Error loading project:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    reload();
-  }, [userId, projectId]);
+    if (!projectId) return;
+    setLoading(true);
+
+    // Real-time listener on the project document
+    const unsubProject = onSnapshot(
+      doc(db, 'projects', projectId),
+      (snap) => {
+        if (snap.exists()) {
+          setProject({ id: snap.id, ...snap.data() });
+        } else {
+          setProject(null);
+        }
+      },
+      (err) => console.error('Error listening to project:', err)
+    );
+
+    // Real-time listener on the files subcollection
+    const filesQuery = query(
+      collection(db, 'projects', projectId, 'files'),
+      orderBy('name', 'asc')
+    );
+    const unsubFiles = onSnapshot(
+      filesQuery,
+      (snapshot) => {
+        const fileList = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setFiles(fileList);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error listening to files:', err);
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      unsubProject();
+      unsubFiles();
+    };
+  }, [projectId]);
+
+  const reload = useCallback(() => {
+    // With onSnapshot, reload is a no-op — data updates automatically.
+    // Kept for API compatibility.
+  }, []);
 
   return { project, files, loading, reload };
 }

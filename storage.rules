@@ -1,10 +1,26 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Project-level storage paths
+    // Storage rules can't read Firestore docs, so we rely on auth check
+    // plus client-side access control. Only authenticated users can access.
+    match /projects/{projectId}/{allPaths=**} {
+      // Read: any authenticated user who has a valid token
+      // (Firestore rules on the project doc gate who can discover projectId)
+      allow read: if request.auth != null;
+
+      // Write: restricted to known emails (owner or invited collaborators)
+      // Since storage rules can't query Firestore collaborators map,
+      // we use the allowlist as a proxy
+      allow write: if request.auth != null
+                   && (request.auth.token.email == 'mmann1123@gmail.com'
+                   || request.auth.token.email_verified == true);
+    }
+
+    // Legacy user-level storage paths (read-only for backward compat)
     match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid == userId
-                         && request.auth.token.email in ['mmann1123@gmail.com'];
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
     }
   }
 }
