@@ -5,6 +5,7 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ProjectEditor from './pages/ProjectEditor.jsx';
+import AcceptInvite from './pages/AcceptInvite.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -71,6 +72,10 @@ export default function App() {
               <Register />
             </PublicRoute>
           }
+        />
+        <Route
+          path="/accept-invite/:invitationId"
+          element={<AcceptInvite />}
         />
         <Route
           path="/project/:projectId"

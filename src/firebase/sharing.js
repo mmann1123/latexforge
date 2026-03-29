@@ -20,22 +20,69 @@ import { db } from './config.js';
  * auto-adds the email to the Firestore allowlist so they can register.
  */
 export async function inviteCollaborator(projectId, projectName, invitedEmail, role, invitedByUser) {
+  const email = invitedEmail.toLowerCase();
+  const inviterName = invitedByUser.displayName || invitedByUser.email;
+  const assignedRole = role || 'editor';
+
   // Create invitation
   const invRef = await addDoc(collection(db, 'invitations'), {
     projectId,
     projectName,
-    invitedEmail: invitedEmail.toLowerCase(),
+    invitedEmail: email,
     invitedBy: invitedByUser.uid,
-    invitedByName: invitedByUser.displayName || invitedByUser.email,
-    role: role || 'editor',
+    invitedByName: inviterName,
+    role: assignedRole,
     status: 'pending',
     createdAt: serverTimestamp(),
   });
 
+  // Send invitation email via Firebase Trigger Email extension
+  const acceptUrl = `https://latexforge.web.app/accept-invite/${invRef.id}`;
+  await addDoc(collection(db, 'mail'), {
+    to: email,
+    message: {
+      subject: `You've been invited to collaborate on "${projectName}"`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #333; margin-bottom: 16px;">You're invited to collaborate!</h2>
+          <p style="color: #555; font-size: 15px; line-height: 1.5;">
+            <strong>${inviterName}</strong> invited you to collaborate on
+            <strong>${projectName}</strong> on LaTeX Forge.
+          </p>
+          <p style="color: #555; font-size: 15px;">Role: <strong>${assignedRole}</strong></p>
+          <div style="margin: 28px 0;">
+            <a href="${acceptUrl}"
+               style="display: inline-block; padding: 12px 28px; background: #4caf50;
+                      color: #fff; text-decoration: none; border-radius: 6px;
+                      font-size: 15px; font-weight: 600;">
+              Accept Invitation
+            </a>
+          </div>
+          <p style="color: #999; font-size: 13px;">
+            If you don't have an account yet, you'll be prompted to create one.
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin-top: 32px;" />
+          <p style="color: #bbb; font-size: 12px;">
+            LaTeX Forge — Collaborative LaTeX editing
+          </p>
+        </div>
+      `,
+    },
+  });
+
   // Auto-add email to Firestore allowlist
-  await addToAllowlist(invitedEmail.toLowerCase());
+  await addToAllowlist(email);
 
   return invRef.id;
+}
+
+/**
+ * Get a single invitation by ID.
+ */
+export async function getInvitation(invitationId) {
+  const snap = await getDoc(doc(db, 'invitations', invitationId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() };
 }
 
 /**

@@ -141,6 +141,15 @@ body {
   font-weight: 500;
   font-size: 17px;
 }
+.auth-info {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
 .auth-error {
   background: #fdecea;
   color: #b71c1c;
