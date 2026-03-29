@@ -9,9 +9,10 @@ service cloud.firestore {
     }
 
     // Dynamic email allowlist for invited collaborators
-    // Only the hardcoded admin can directly write; reads are open to authenticated users
+    // Readable without auth (checked during registration before user exists)
+    // Only the admin can write directly
     match /config/allowedEmails {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if request.auth != null
                    && request.auth.token.email == 'mmann1123@gmail.com';
     }
