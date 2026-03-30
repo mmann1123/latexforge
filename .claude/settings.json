@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:en.wikibooks.org)",
+      "WebFetch(domain:docs.overleaf.com)",
+      "Read(//tmp/overleaf-ref/services/web/frontend/js/features/pdf-preview/components/**)",
+      "Read(//tmp/overleaf-ref/services/web/frontend/js/features/pdf-preview/**)",
+      "Read(//tmp/overleaf-ref/**)",
+      "Bash(find /tmp/overleaf-ref/services -name *log* -path */backend/* -o -path */server/*)",
+      "Bash(grep -E \"\\\\.\\(js|ts\\)$\")",
+      "Bash(grep -r \"HumanReadableLogs.parse\\\\|new LatexLogParser\" /tmp/overleaf-ref/services/web/frontend --include=*.ts --include=*.tsx)"
+    ]
+  }
+}

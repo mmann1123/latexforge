@@ -88,7 +88,7 @@ describe('FileTree', () => {
     expect(onSelectFile).toHaveBeenCalledWith('1');
   });
 
-  it('renders header with New and Upload buttons', () => {
+  it('renders header with New file and Upload buttons', () => {
     render(
       <FileTree
         files={mockFiles}
@@ -99,8 +99,8 @@ describe('FileTree', () => {
         onUploadFile={vi.fn()}
       />
     );
-    expect(screen.getByText('+ New')).toBeInTheDocument();
-    expect(screen.getByText('Upload')).toBeInTheDocument();
+    expect(screen.getByTitle('New file')).toBeInTheDocument();
+    expect(screen.getByTitle('Upload files')).toBeInTheDocument();
   });
 
   it('calls onUploadFile when Upload is clicked', () => {
@@ -115,7 +115,7 @@ describe('FileTree', () => {
         onUploadFile={onUploadFile}
       />
     );
-    fireEvent.click(screen.getByText('Upload'));
+    fireEvent.click(screen.getByTitle('Upload files'));
     expect(onUploadFile).toHaveBeenCalled();
   });
 
