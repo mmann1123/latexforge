@@ -18,18 +18,25 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test
+        env:
+          VITE_FIREBASE_API_KEY: test-key
+          VITE_FIREBASE_AUTH_DOMAIN: test.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: test
+          VITE_FIREBASE_STORAGE_BUCKET: test.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "123"
+          VITE_FIREBASE_APP_ID: "1:123:web:abc"
+          VITE_COMPILE_SERVICE_URL: http://localhost:8080/compile
 
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
+    container:
+      image: texlive/texlive:latest
     defaults:
       run:
         working-directory: cloud-run
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: pip install -r requirements.txt pytest httpx
+      - run: apt-get update && apt-get install -y python3-pip
+      - run: pip install --break-system-packages -r requirements.txt pytest httpx
       - run: pytest

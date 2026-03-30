@@ -674,6 +674,114 @@ body {
   margin: 0;
 }
 
+/* --- Structured Error/Warning Entries --- */
+.compile-entries {
+  max-height: 250px;
+  overflow-y: auto;
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+}
+.compile-entry {
+  border-left: 4px solid #555;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #2a2a2a;
+}
+.compile-entry-error {
+  border-left-color: #e53935;
+}
+.compile-entry-warning {
+  border-left-color: #f9a825;
+}
+.compile-entry-typesetting {
+  border-left-color: #42a5f5;
+}
+.compile-entry-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.compile-entry-level {
+  flex-shrink: 0;
+  font-weight: 700;
+  width: 16px;
+  text-align: center;
+}
+.compile-entry-error .compile-entry-level {
+  color: #e53935;
+}
+.compile-entry-warning .compile-entry-level {
+  color: #f9a825;
+}
+.compile-entry-typesetting .compile-entry-level {
+  color: #42a5f5;
+}
+.compile-entry-msg {
+  flex: 1;
+  color: #ddd;
+  cursor: pointer;
+  word-break: break-word;
+  line-height: 1.4;
+}
+.compile-entry-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.compile-entry-line {
+  background: #333;
+  color: #8cf;
+  border: none;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-family: monospace;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.compile-entry-line:hover {
+  background: #444;
+  color: #fff;
+}
+.compile-entry-explain {
+  background: #2a4a2a;
+  color: #8f8;
+  border: none;
+  border-radius: 3px;
+  padding: 1px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.compile-entry-explain:hover {
+  background: #3a5a3a;
+}
+.compile-entry-explain:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.compile-entry-ctx {
+  margin: 4px 0 0 24px;
+  padding: 4px 8px;
+  background: #252525;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Fira Code', monospace;
+  font-size: 12px;
+  color: #bbb;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.compile-ai-box {
+  margin: 6px 0 2px 24px;
+  padding: 8px 12px;
+  background: #1a2e1a;
+  border: 1px solid #2a4a2a;
+  border-radius: 4px;
+  color: #c5e1c5;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* --- Editor Layout (50/50) --- */
 .editor-layout {
   display: flex;

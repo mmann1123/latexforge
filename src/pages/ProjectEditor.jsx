@@ -29,6 +29,7 @@ export default function ProjectEditor() {
   const [selectedFileId, setSelectedFileId] = useState(null);
   const [pdfData, setPdfData] = useState(null);
   const [compileLog, setCompileLog] = useState('');
+  const [compileErrors, setCompileErrors] = useState([]);
   const [compileSuccess, setCompileSuccess] = useState(null);
   const [compiling, setCompiling] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -46,6 +47,7 @@ export default function ProjectEditor() {
   const [saveFlash, setSaveFlash] = useState(false);
 
   const editorInsertRef = useRef(null);
+  const editorGoToLineRef = useRef(null);
   const fileInputRef = useRef(null);
   const filesMenuRef = useRef(null);
   const autoCompileTimerRef = useRef(null);
@@ -113,14 +115,15 @@ export default function ProjectEditor() {
     canEdit
   );
 
-  // Select main.tex automatically
+  // Select main.tex automatically, or first file if none selected / selection invalid
   useEffect(() => {
-    if (files.length > 0 && !selectedFileId) {
+    if (files.length === 0) return;
+    const currentValid = selectedFileId && files.some((f) => f.id === selectedFileId);
+    if (!currentValid) {
       const mainTex = files.find((f) => f.name === 'main.tex');
-      const first = mainTex || files[0];
-      setSelectedFileId(first.id);
+      setSelectedFileId((mainTex || files[0]).id);
     }
-  }, [files, selectedFileId]);
+  }, [files]);
 
   // Sync title
   useEffect(() => {
@@ -174,6 +177,15 @@ export default function ProjectEditor() {
   }
 
   async function handleAddFile(folderPrefix = '') {
+    // New folder request from the folder button — create a placeholder .tex file inside it
+    if (folderPrefix && folderPrefix.endsWith('/')) {
+      try {
+        await createFile(projectId, `${folderPrefix}main.tex`, 'tex', '');
+      } catch (err) {
+        console.error('Error creating file:', err);
+      }
+      return;
+    }
     const hint = folderPrefix ? `File name in ${folderPrefix}:` : 'File name (e.g., chapter1.tex, images/fig.png):';
     const name = window.prompt(hint);
     if (!name || !name.trim()) return;
@@ -275,13 +287,16 @@ export default function ProjectEditor() {
         setPdfData(result.pdf);
         setCompileSuccess(true);
         setCompileLog(result.log || '');
+        setCompileErrors(result.errors || []);
       } else {
         setCompileSuccess(false);
         setCompileLog(result.log || 'Compilation failed.');
+        setCompileErrors(result.errors || []);
       }
     } catch (err) {
       setCompileSuccess(false);
       setCompileLog(`Compile error: ${err.message}`);
+      setCompileErrors([]);
     } finally {
       setCompiling(false);
     }
@@ -431,7 +446,13 @@ export default function ProjectEditor() {
         )}
         <div className="editor-pane" style={{ flex: previewVisible ? editorWidthPercent : 1 }}>
           <Toolbar onInsert={handleInsertSnippet} />
-          <CompileLog log={compileLog} success={compileSuccess} />
+          <CompileLog
+            log={compileLog}
+            success={compileSuccess}
+            errors={compileErrors}
+            onGoToLine={(line) => editorGoToLineRef.current?.(line)}
+            sourceCode={yText?.toString() || ''}
+          />
           {selectedFile ? (
             selectedFile.type === 'binary' ? (
               <FilePreview projectId={projectId} fileName={selectedFile.name} />
@@ -442,6 +463,7 @@ export default function ProjectEditor() {
                 undoManager={undoManager}
                 readOnly={!canEdit}
                 insertRef={editorInsertRef}
+                goToLineRef={editorGoToLineRef}
               />
             )
           ) : (

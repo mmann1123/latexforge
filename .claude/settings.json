@@ -9,7 +9,8 @@
       "Read(//tmp/overleaf-ref/**)",
       "Bash(find /tmp/overleaf-ref/services -name *log* -path */backend/* -o -path */server/*)",
       "Bash(grep -E \"\\\\.\\(js|ts\\)$\")",
-      "Bash(grep -r \"HumanReadableLogs.parse\\\\|new LatexLogParser\" /tmp/overleaf-ref/services/web/frontend --include=*.ts --include=*.tsx)"
+      "Bash(grep -r \"HumanReadableLogs.parse\\\\|new LatexLogParser\" /tmp/overleaf-ref/services/web/frontend --include=*.ts --include=*.tsx)",
+      "Bash(curl -s https://latex-compiler-qd4iq75s3a-uc.a.run.app/health)"
     ]
   }
 }

@@ -16,7 +16,7 @@ gcloud run deploy latex-compiler \
   --min-instances 0 \
   --max-instances 1 \
   --concurrency 4 \
-  --set-env-vars "^||^ALLOWED_ORIGINS=https://latexforge.web.app,https://latexforge.firebaseapp.com||ALLOWED_EMAILS=mmann1123@gmail.com" \
+  --set-env-vars "^||^ALLOWED_ORIGINS=https://latexforge.web.app,https://latexforge.firebaseapp.com||ALLOWED_EMAILS=mmann1123@gmail.com||GEMINI_API_KEY=${GEMINI_API_KEY:?Set GEMINI_API_KEY env var before deploying}" \
   --project "$PROJECT_ID"
 
 echo "Deployment complete!"

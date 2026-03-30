@@ -62,7 +62,7 @@ const latexLanguage = StreamLanguage.define(latexStreamParser);
  * 2. Legacy/solo mode (value + onChange props):
  *    Controlled component with debounced saves.
  */
-export default function Editor({ yText, awareness, undoManager, readOnly, value, onChange, insertRef }) {
+export default function Editor({ yText, awareness, undoManager, readOnly, value, onChange, insertRef, goToLineRef }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const isExternalUpdate = useRef(false);
@@ -209,6 +209,22 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
       };
     }
   }, [insertRef]);
+
+  // Expose goToLine function to parent via ref
+  useEffect(() => {
+    if (goToLineRef) {
+      goToLineRef.current = (lineNumber) => {
+        const view = viewRef.current;
+        if (!view) return;
+        const line = view.state.doc.line(Math.min(lineNumber, view.state.doc.lines));
+        view.dispatch({
+          selection: { anchor: line.from },
+          scrollIntoView: true,
+        });
+        view.focus();
+      };
+    }
+  }, [goToLineRef]);
 
   return <div className="editor-container" ref={containerRef} />;
 }
