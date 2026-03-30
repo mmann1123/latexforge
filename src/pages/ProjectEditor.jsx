@@ -9,8 +9,9 @@ import {
   updateProjectName,
   createFile,
   deleteFile,
+  renameFile,
 } from '../firebase/firestore.js';
-import { uploadFile, getProjectFileAsBase64 } from '../firebase/storage.js';
+import { uploadFile, getProjectFileAsBase64, getFileUrl } from '../firebase/storage.js';
 import Editor from '../components/Editor.jsx';
 import Toolbar from '../components/Toolbar.jsx';
 import PdfViewer from '../components/PdfViewer.jsx';
@@ -230,6 +231,49 @@ export default function ProjectEditor() {
     }
   }
 
+  async function handleRenameFile(file) {
+    const displayName = file.name.includes('/') ? file.name.split('/').pop() : file.name;
+    const newDisplayName = window.prompt('New name:', displayName);
+    if (!newDisplayName?.trim() || newDisplayName.trim() === displayName) return;
+    const folder = file.name.includes('/') ? file.name.substring(0, file.name.lastIndexOf('/') + 1) : '';
+    try {
+      await renameFile(projectId, file.id, folder + newDisplayName.trim());
+    } catch (err) {
+      console.error('Error renaming file:', err);
+    }
+  }
+
+  async function handleDownloadFile(file) {
+    try {
+      if (file.type === 'binary') {
+        const url = await getFileUrl(`projects/${projectId}/${file.name}`);
+        window.open(url, '_blank');
+      } else {
+        const full = await getFile(projectId, file.id);
+        const blob = new Blob([full?.content || ''], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.displayName || file.name;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Error downloading file:', err);
+    }
+  }
+
+  async function handleMoveFile(file, targetFolder) {
+    const fileName = file.name.includes('/') ? file.name.split('/').pop() : file.name;
+    const newName = targetFolder ? `${targetFolder}/${fileName}` : fileName;
+    if (newName === file.name) return;
+    try {
+      await renameFile(projectId, file.id, newName);
+    } catch (err) {
+      console.error('Error moving file:', err);
+    }
+  }
+
   async function handleCompile() {
     const compileUrl = import.meta.env.VITE_COMPILE_SERVICE_URL;
     if (!compileUrl) {
@@ -436,6 +480,9 @@ export default function ProjectEditor() {
                 onDeleteFile={canEdit ? handleDeleteFile : undefined}
                 onAddFile={canEdit ? handleAddFile : undefined}
                 onUploadFile={canEdit ? () => fileInputRef.current?.click() : undefined}
+                onRenameFile={canEdit ? handleRenameFile : undefined}
+                onDownloadFile={handleDownloadFile}
+                onMoveFile={canEdit ? handleMoveFile : undefined}
               />
             </div>
             <div

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function sortFiles(files) {
   const priority = ['.tex', '.bib', '.cls'];
@@ -31,7 +31,74 @@ function buildTree(files) {
   return root;
 }
 
-function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onDeleteFile, onAddFile }) {
+function getFolders(files) {
+  const folders = new Set(['']);
+  for (const f of files) {
+    const parts = f.name.split('/');
+    for (let i = 1; i < parts.length; i++) {
+      folders.add(parts.slice(0, i).join('/'));
+    }
+  }
+  return Array.from(folders).sort();
+}
+
+function ContextMenu({ x, y, file, onClose, onRename, onDownload, onDelete, onMove, folders }) {
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [onClose]);
+
+  // Adjust position if menu would go off-screen
+  const style = { position: 'fixed', left: x, top: y, zIndex: 1000 };
+
+  return (
+    <div className="tree-context-menu" style={style} ref={menuRef}>
+      {onRename && <button onClick={() => { onRename(file); onClose(); }}>Rename</button>}
+      {onDownload && <button onClick={() => { onDownload(file); onClose(); }}>Download</button>}
+      {onDelete && <button onClick={() => { onDelete(file.id, file.name); onClose(); }}>Delete</button>}
+      {onMove && folders.length > 1 && (
+        <>
+          <div className="tree-context-separator" />
+          <div className="tree-context-submenu">
+            <span className="tree-context-label">Move to...</span>
+            {folders.map((folder) => {
+              const currentFolder = file.name.includes('/') ? file.name.substring(0, file.name.lastIndexOf('/')) : '';
+              if (folder === currentFolder) return null;
+              return (
+                <button key={folder} onClick={() => { onMove(file, folder); onClose(); }}>
+                  {folder || '/ (root)'}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function FileItem({ file, depth, selectedFileId, onSelectFile, onContextMenu }) {
+  return (
+    <div
+      className={`tree-file ${file.id === selectedFileId ? 'active' : ''}`}
+      style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      onClick={() => onSelectFile(file.id)}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, file); }}
+    >
+      <span className="tree-file-icon">
+        {file.type === 'binary' ? '\uD83D\uDDBC' : '\uD83D\uDCC4'}
+      </span>
+      <span className="tree-file-name" title={file.name}>{file.displayName}</span>
+    </div>
+  );
+}
+
+function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onAddFile, onContextMenu }) {
   const [expanded, setExpanded] = useState(true);
   const folderNames = Object.keys(node.children).sort();
 
@@ -44,11 +111,13 @@ function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onDeleteF
       >
         <span className="tree-icon">{expanded ? '\u25BE' : '\u25B8'}</span>
         <span className="tree-folder-name">{name}</span>
-        <button
-          className="tree-action-btn"
-          onClick={(e) => { e.stopPropagation(); onAddFile(name ? name + '/' : ''); }}
-          title="New file in folder"
-        >+</button>
+        {onAddFile && (
+          <button
+            className="tree-action-btn"
+            onClick={(e) => { e.stopPropagation(); onAddFile(name ? name + '/' : ''); }}
+            title="New file in folder"
+          >+</button>
+        )}
       </div>
       {expanded && (
         <div className="tree-folder-children">
@@ -60,27 +129,19 @@ function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onDeleteF
               depth={depth + 1}
               selectedFileId={selectedFileId}
               onSelectFile={onSelectFile}
-              onDeleteFile={onDeleteFile}
-              onAddFile={(prefix) => onAddFile(name ? `${name}/${prefix}` : prefix)}
+              onAddFile={onAddFile}
+              onContextMenu={onContextMenu}
             />
           ))}
           {sortFiles(node.files).map((f) => (
-            <div
+            <FileItem
               key={f.id}
-              className={`tree-file ${f.id === selectedFileId ? 'active' : ''}`}
-              style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
-              onClick={() => onSelectFile(f.id)}
-            >
-              <span className="tree-file-icon">
-                {f.type === 'binary' ? '\uD83D\uDDBC' : '\uD83D\uDCC4'}
-              </span>
-              <span className="tree-file-name" title={f.name}>{f.displayName}</span>
-              <button
-                className="tree-delete-btn"
-                onClick={(e) => { e.stopPropagation(); onDeleteFile(f.id, f.name); }}
-                title="Delete"
-              >&times;</button>
-            </div>
+              file={f}
+              depth={depth + 1}
+              selectedFileId={selectedFileId}
+              onSelectFile={onSelectFile}
+              onContextMenu={onContextMenu}
+            />
           ))}
         </div>
       )}
@@ -88,9 +149,14 @@ function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onDeleteF
   );
 }
 
-export default function FileTree({ files, selectedFileId, onSelectFile, onDeleteFile, onAddFile, onUploadFile, onNewFolder, onCollapseAll, fileInputRef }) {
+export default function FileTree({ files, selectedFileId, onSelectFile, onDeleteFile, onAddFile, onUploadFile, onRenameFile, onDownloadFile, onMoveFile }) {
   const tree = buildTree(files);
-  const [allCollapsed, setAllCollapsed] = useState(false);
+  const folders = getFolders(files);
+  const [contextMenu, setContextMenu] = useState(null);
+
+  function handleContextMenu(e, file) {
+    setContextMenu({ x: e.clientX, y: e.clientY, file });
+  }
 
   return (
     <div className="file-tree">
@@ -118,7 +184,6 @@ export default function FileTree({ files, selectedFileId, onSelectFile, onDelete
         </div>
       </div>
       <div className="file-tree-content">
-        {/* Root-level folders */}
         {Object.keys(tree.children).sort().map((name) => (
           <TreeFolder
             key={name}
@@ -127,33 +192,38 @@ export default function FileTree({ files, selectedFileId, onSelectFile, onDelete
             depth={0}
             selectedFileId={selectedFileId}
             onSelectFile={onSelectFile}
-            onDeleteFile={onDeleteFile}
             onAddFile={onAddFile}
+            onContextMenu={handleContextMenu}
           />
         ))}
-        {/* Root-level files */}
         {sortFiles(tree.files).map((f) => (
-          <div
+          <FileItem
             key={f.id}
-            className={`tree-file ${f.id === selectedFileId ? 'active' : ''}`}
-            style={{ paddingLeft: '20px' }}
-            onClick={() => onSelectFile(f.id)}
-          >
-            <span className="tree-file-icon">
-              {f.type === 'binary' ? '\uD83D\uDDBC' : '\uD83D\uDCC4'}
-            </span>
-            <span className="tree-file-name" title={f.name}>{f.displayName}</span>
-            <button
-              className="tree-delete-btn"
-              onClick={(e) => { e.stopPropagation(); onDeleteFile(f.id, f.name); }}
-              title="Delete"
-            >&times;</button>
-          </div>
+            file={f}
+            depth={1}
+            selectedFileId={selectedFileId}
+            onSelectFile={onSelectFile}
+            onContextMenu={handleContextMenu}
+          />
         ))}
         {files.length === 0 && (
           <div className="tree-empty">No files yet</div>
         )}
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          file={contextMenu.file}
+          folders={folders}
+          onClose={() => setContextMenu(null)}
+          onRename={onRenameFile}
+          onDownload={onDownloadFile}
+          onDelete={onDeleteFile}
+          onMove={onMoveFile}
+        />
+      )}
     </div>
   );
 }

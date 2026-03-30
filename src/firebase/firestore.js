@@ -154,6 +154,13 @@ export async function updateFileContent(projectId, fileId, content) {
   });
 }
 
+export async function renameFile(projectId, fileId, newName) {
+  await updateDoc(
+    doc(db, 'projects', projectId, 'files', fileId),
+    { name: newName, updatedAt: serverTimestamp() }
+  );
+}
+
 export async function deleteFile(projectId, fileId) {
   await deleteDoc(
     doc(db, 'projects', projectId, 'files', fileId)
