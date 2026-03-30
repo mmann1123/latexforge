@@ -83,9 +83,10 @@ function ContextMenu({ x, y, file, onClose, onRename, onDownload, onDelete, onMo
 }
 
 function FileItem({ file, depth, selectedFileId, onSelectFile, onContextMenu }) {
+  const isActive = file.id === selectedFileId;
   return (
     <div
-      className={`tree-file ${file.id === selectedFileId ? 'active' : ''}`}
+      className={`tree-file ${isActive ? 'active' : ''}`}
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
       onClick={() => onSelectFile(file.id)}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, file); }}
@@ -94,6 +95,13 @@ function FileItem({ file, depth, selectedFileId, onSelectFile, onContextMenu }) 
         {file.type === 'binary' ? '\uD83D\uDDBC' : '\uD83D\uDCC4'}
       </span>
       <span className="tree-file-name" title={file.name}>{file.displayName}</span>
+      {isActive && (
+        <button
+          className="tree-kebab-btn"
+          onClick={(e) => { e.stopPropagation(); onContextMenu(e, file); }}
+          title="File actions"
+        >&#x22EE;</button>
+      )}
     </div>
   );
 }
