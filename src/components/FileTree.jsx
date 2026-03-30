@@ -95,7 +95,7 @@ export default function FileTree({ files, selectedFileId, onSelectFile, onDelete
   return (
     <div className="file-tree">
       <div className="file-tree-header">
-        <span>File tree</span>
+        <span></span>
         <div className="file-tree-actions">
           {onAddFile && (
             <button className="tree-icon-btn" onClick={() => onAddFile('')} title="New file">
