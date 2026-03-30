@@ -6,6 +6,7 @@ import { bracketMatching, indentOnInput, StreamLanguage } from '@codemirror/lang
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { yCollab } from 'y-codemirror.next';
 import { latexCompletionSource } from '../utils/latexCompletions.js';
 
 // Custom LaTeX stream parser
@@ -52,7 +53,16 @@ const latexStreamParser = {
 
 const latexLanguage = StreamLanguage.define(latexStreamParser);
 
-export default function Editor({ value, onChange, insertRef }) {
+/**
+ * Editor component supporting two modes:
+ *
+ * 1. Collaborative mode (yText + awareness + undoManager props):
+ *    Uses y-codemirror.next for real-time sync via Yjs.
+ *
+ * 2. Legacy/solo mode (value + onChange props):
+ *    Controlled component with debounced saves.
+ */
+export default function Editor({ yText, awareness, undoManager, readOnly, value, onChange, insertRef }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const isExternalUpdate = useRef(false);
@@ -63,12 +73,69 @@ export default function Editor({ value, onChange, insertRef }) {
     onChangeRef.current = onChange;
   }, [onChange]);
 
+  const isCollaborative = !!(yText && awareness);
+
+  // === Collaborative mode ===
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!isCollaborative || !containerRef.current) return;
+
+    // Destroy any existing view
+    if (viewRef.current) {
+      viewRef.current.destroy();
+      viewRef.current = null;
+    }
+
+    const extensions = [
+      lineNumbers(),
+      highlightActiveLine(),
+      highlightActiveLineGutter(),
+      drawSelection(),
+      indentOnInput(),
+      bracketMatching(),
+      highlightSelectionMatches(),
+      latexLanguage,
+      autocompletion({ override: [latexCompletionSource] }),
+      oneDark,
+      yCollab(yText, awareness, { undoManager }),
+      keymap.of([...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab]),
+      EditorView.lineWrapping,
+      EditorView.theme({
+        '&': { height: '100%', fontSize: '14px' },
+        '.cm-scroller': { overflow: 'auto', fontFamily: "'Source Code Pro', 'Fira Code', 'Consolas', monospace" },
+      }),
+    ];
+
+    if (readOnly) {
+      extensions.push(EditorState.readOnly.of(true));
+    }
+
+    const state = EditorState.create({
+      doc: yText.toString(),
+      extensions,
+    });
+
+    const view = new EditorView({ state, parent: containerRef.current });
+    viewRef.current = view;
+
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
+  }, [yText, awareness, undoManager, readOnly]);
+
+  // === Legacy/solo mode ===
+  useEffect(() => {
+    if (isCollaborative || !containerRef.current) return;
+
+    // Destroy any existing view
+    if (viewRef.current) {
+      viewRef.current.destroy();
+      viewRef.current = null;
+    }
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged && !isExternalUpdate.current) {
-        onChangeRef.current(update.state.doc.toString());
+        onChangeRef.current?.(update.state.doc.toString());
       }
     });
 
@@ -101,11 +168,13 @@ export default function Editor({ value, onChange, insertRef }) {
 
     return () => {
       view.destroy();
+      viewRef.current = null;
     };
-  }, []);
+  }, [isCollaborative]);
 
-  // Update content when value prop changes externally
+  // Update content when value prop changes externally (legacy mode only)
   useEffect(() => {
+    if (isCollaborative) return;
     const view = viewRef.current;
     if (!view) return;
     const currentValue = view.state.doc.toString();
@@ -116,7 +185,7 @@ export default function Editor({ value, onChange, insertRef }) {
       });
       isExternalUpdate.current = false;
     }
-  }, [value]);
+  }, [value, isCollaborative]);
 
   // Expose insert function to parent via ref
   useEffect(() => {

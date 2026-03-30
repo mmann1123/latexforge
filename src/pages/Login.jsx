@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loginWithEmail, loginWithGoogle } from '../firebase/auth.js';
 
 export default function Login() {
@@ -8,6 +8,16 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const invitation = searchParams.get('invitation');
+
+  function redirectAfterAuth() {
+    if (invitation) {
+      navigate(`/accept-invite/${invitation}`, { replace: true });
+    } else {
+      navigate('/');
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -15,7 +25,7 @@ export default function Login() {
     setLoading(true);
     try {
       await loginWithEmail(email, password);
-      navigate('/');
+      redirectAfterAuth();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -28,7 +38,7 @@ export default function Login() {
     setLoading(true);
     try {
       await loginWithGoogle();
-      navigate('/');
+      redirectAfterAuth();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -36,11 +46,16 @@ export default function Login() {
     }
   }
 
+  const registerLink = invitation ? `/register?invitation=${invitation}` : '/register';
+
   return (
     <div className="auth-page">
       <div className="auth-card">
         <h1 className="auth-title">LaTeX Forge</h1>
         <h2>Sign In</h2>
+        {invitation && (
+          <div className="auth-info">Sign in to accept your collaboration invitation.</div>
+        )}
         {error && <div className="auth-error">{error}</div>}
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -86,7 +101,7 @@ export default function Login() {
           Sign in with Google
         </button>
         <p className="auth-link">
-          Don't have an account? <Link to="/register">Create one</Link>
+          Don't have an account? <Link to={registerLink}>Create one</Link>
         </p>
       </div>
     </div>

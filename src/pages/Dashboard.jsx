@@ -1,20 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { getProjects, createProject, deleteProject } from '../firebase/firestore.js';
+import { getProjects, getSharedProjects, createProject, deleteProject } from '../firebase/firestore.js';
+import { getPendingInvitations, acceptInvitation, declineInvitation } from '../firebase/sharing.js';
 import { logout } from '../firebase/auth.js';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
+  const [sharedProjects, setSharedProjects] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   async function loadProjects() {
     if (!user) return;
     setLoading(true);
     try {
-      setProjects(await getProjects(user.uid));
+      const [ownedResult, sharedResult, pendingResult] = await Promise.allSettled([
+        getProjects(user.uid),
+        getSharedProjects(user.uid),
+        getPendingInvitations(user.email),
+      ]);
+      setProjects(ownedResult.status === 'fulfilled' ? ownedResult.value : []);
+      setSharedProjects(sharedResult.status === 'fulfilled' ? sharedResult.value : []);
+      setInvitations(pendingResult.status === 'fulfilled' ? pendingResult.value : []);
+      if (ownedResult.status === 'rejected') console.error('Error loading owned projects:', ownedResult.reason);
+      if (sharedResult.status === 'rejected') console.error('Error loading shared projects:', sharedResult.reason);
+      if (pendingResult.status === 'rejected') console.error('Error loading invitations:', pendingResult.reason);
     } catch (err) {
       console.error('Error loading projects:', err);
     } finally {
@@ -41,10 +54,28 @@ export default function Dashboard() {
   async function handleDelete(projectId, projectName) {
     if (!window.confirm(`Delete "${projectName}"? This cannot be undone.`)) return;
     try {
-      await deleteProject(user.uid, projectId);
+      await deleteProject(projectId);
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
     } catch (err) {
       console.error('Error deleting project:', err);
+    }
+  }
+
+  async function handleAcceptInvitation(invitation) {
+    try {
+      await acceptInvitation(invitation.id, user.uid, user.email);
+      await loadProjects();
+    } catch (err) {
+      console.error('Error accepting invitation:', err);
+    }
+  }
+
+  async function handleDeclineInvitation(invitation) {
+    try {
+      await declineInvitation(invitation.id);
+      setInvitations((prev) => prev.filter((i) => i.id !== invitation.id));
+    } catch (err) {
+      console.error('Error declining invitation:', err);
     }
   }
 
@@ -67,6 +98,28 @@ export default function Dashboard() {
       </header>
 
       <main className="dashboard-content">
+        {/* Pending invitations */}
+        {invitations.length > 0 && (
+          <div className="invitations-section">
+            <h3>Pending Invitations</h3>
+            {invitations.map((inv) => (
+              <div key={inv.id} className="invitation-card">
+                <span>
+                  <strong>{inv.invitedByName || 'Someone'}</strong> invited you to <strong>{inv.projectName}</strong> as {inv.role}
+                </span>
+                <div className="invitation-actions">
+                  <button className="btn btn-primary btn-sm" onClick={() => handleAcceptInvitation(inv)}>
+                    Accept
+                  </button>
+                  <button className="btn btn-outline btn-sm" onClick={() => handleDeclineInvitation(inv)}>
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="dashboard-top">
           <h2>Your Projects</h2>
           <button className="btn btn-primary" onClick={handleNewProject}>
@@ -101,6 +154,31 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Shared with me */}
+        {sharedProjects.length > 0 && (
+          <>
+            <div className="dashboard-top" style={{ marginTop: '2rem' }}>
+              <h2>Shared with Me</h2>
+            </div>
+            <div className="project-grid">
+              {sharedProjects.map((p) => (
+                <div key={p.id} className="project-card project-card-shared">
+                  <div className="project-card-body">
+                    <h3>{p.name}</h3>
+                    <span className="project-date">{formatDate(p.updatedAt)}</span>
+                    <span className="project-role">{p.collaborators?.[user?.uid] || 'viewer'}</span>
+                  </div>
+                  <div className="project-card-actions">
+                    <button className="btn btn-primary btn-sm" onClick={() => navigate(`/project/${p.id}`)}>
+                      Open
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>

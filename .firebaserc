@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "latexforge"
+  },
+  "targets": {},
+  "etags": {
+    "latexforge": {
+      "extensionInstances": {
+        "firestore-send-email": "47f7dcd1768aa60cb8409c327b5809389897cdbdbc036d4753b8b6e170ced26f"
+      }
+    }
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { registerWithEmail } from '../firebase/auth.js';
 
 export default function Register() {
@@ -10,6 +10,8 @@ export default function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const invitation = searchParams.get('invitation');
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -27,7 +29,11 @@ export default function Register() {
     setLoading(true);
     try {
       await registerWithEmail(email, password, displayName);
-      navigate('/');
+      if (invitation) {
+        navigate(`/accept-invite/${invitation}`, { replace: true });
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -35,11 +41,16 @@ export default function Register() {
     }
   }
 
+  const loginLink = invitation ? `/login?invitation=${invitation}` : '/login';
+
   return (
     <div className="auth-page">
       <div className="auth-card">
         <h1 className="auth-title">LaTeX Forge</h1>
         <h2>Create Account</h2>
+        {invitation && (
+          <div className="auth-info">Create an account to accept your collaboration invitation.</div>
+        )}
         {error && <div className="auth-error">{error}</div>}
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -91,7 +102,7 @@ export default function Register() {
           </button>
         </form>
         <p className="auth-link">
-          Already have an account? <Link to="/login">Sign in</Link>
+          Already have an account? <Link to={loginLink}>Sign in</Link>
         </p>
       </div>
     </div>

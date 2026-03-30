@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useProject } from '../hooks/useProject.js';
+import { useCollaboration } from '../collaboration/useCollaboration.js';
 import {
   getFile,
   updateFileContent,
@@ -15,28 +16,100 @@ import Toolbar from '../components/Toolbar.jsx';
 import PdfViewer from '../components/PdfViewer.jsx';
 import CompileLog from '../components/CompileLog.jsx';
 import FileTree from '../components/FileTree.jsx';
+import ShareDialog from '../components/ShareDialog.jsx';
+import CollaboratorAvatars from '../components/CollaboratorAvatars.jsx';
 
 export default function ProjectEditor() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { project, files, loading, reload } = useProject(user?.uid, projectId);
+  const { project, files, loading, reload } = useProject(projectId);
 
   const [selectedFileId, setSelectedFileId] = useState(null);
-  const [fileContent, setFileContent] = useState('');
   const [pdfData, setPdfData] = useState(null);
   const [compileLog, setCompileLog] = useState('');
   const [compileSuccess, setCompileSuccess] = useState(null);
   const [compiling, setCompiling] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState('');
   const [filesMenuOpen, setFilesMenuOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [autoCompile, setAutoCompile] = useState(() => localStorage.getItem('latexforge-autocompile') === 'true');
+
+  // Resizable pane state
+  const [fileTreeVisible, setFileTreeVisible] = useState(() => localStorage.getItem('latexforge-filetree-visible') !== 'false');
+  const [previewVisible, setPreviewVisible] = useState(() => localStorage.getItem('latexforge-preview-visible') !== 'false');
+  const [fileTreeWidth, setFileTreeWidth] = useState(() => Number(localStorage.getItem('latexforge-filetree-width')) || 220);
+  const [editorWidthPercent, setEditorWidthPercent] = useState(() => Number(localStorage.getItem('latexforge-editor-pct')) || 50);
+  const [isDragging, setIsDragging] = useState(false);
+
   const editorInsertRef = useRef(null);
   const fileInputRef = useRef(null);
   const filesMenuRef = useRef(null);
   const autoCompileTimerRef = useRef(null);
+  const editorLayoutRef = useRef(null);
+  const dragTypeRef = useRef(null);
+
+  // Persist pane layout to localStorage
+  useEffect(() => { localStorage.setItem('latexforge-filetree-visible', fileTreeVisible); }, [fileTreeVisible]);
+  useEffect(() => { localStorage.setItem('latexforge-preview-visible', previewVisible); }, [previewVisible]);
+  useEffect(() => { localStorage.setItem('latexforge-filetree-width', fileTreeWidth); }, [fileTreeWidth]);
+  useEffect(() => { localStorage.setItem('latexforge-editor-pct', editorWidthPercent); }, [editorWidthPercent]);
+
+  // Drag-to-resize handlers
+  const handleResizeStart = useCallback((e, type) => {
+    e.preventDefault();
+    dragTypeRef.current = type;
+    setIsDragging(true);
+    const startX = e.clientX;
+    const layout = editorLayoutRef.current;
+    if (!layout) return;
+    const layoutRect = layout.getBoundingClientRect();
+    const startFileTreeWidth = fileTreeWidth;
+    const startEditorPct = editorWidthPercent;
+
+    function onMouseMove(ev) {
+      const dx = ev.clientX - startX;
+      if (dragTypeRef.current === 'filetree') {
+        const newWidth = Math.max(150, Math.min(500, startFileTreeWidth + dx));
+        setFileTreeWidth(newWidth);
+      } else if (dragTypeRef.current === 'editor-preview') {
+        const ftw = fileTreeVisible ? fileTreeWidth : 0;
+        const handleWidth = 6;
+        const available = layoutRect.width - ftw - handleWidth * (fileTreeVisible ? 2 : 1);
+        const editorStartPx = (startEditorPct / 100) * available;
+        const newEditorPx = editorStartPx + dx;
+        const newPct = Math.max(20, Math.min(80, (newEditorPx / available) * 100));
+        setEditorWidthPercent(newPct);
+      }
+    }
+
+    function onMouseUp() {
+      setIsDragging(false);
+      dragTypeRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [fileTreeWidth, editorWidthPercent, fileTreeVisible]);
+
+  const isOwner = project?.ownerId === user?.uid;
+  const userRole = isOwner ? 'owner' : (project?.collaborators?.[user?.uid] || null);
+  const canEdit = isOwner || userRole === 'editor';
+
+  // Collaborative editing hook
+  const { yText, awareness, undoManager, status: collabStatus } = useCollaboration(
+    projectId,
+    selectedFileId,
+    user,
+    canEdit
+  );
 
   // Select main.tex automatically
   useEffect(() => {
@@ -44,7 +117,6 @@ export default function ProjectEditor() {
       const mainTex = files.find((f) => f.name === 'main.tex');
       const first = mainTex || files[0];
       setSelectedFileId(first.id);
-      setFileContent(first.content || '');
     }
   }, [files, selectedFileId]);
 
@@ -64,78 +136,16 @@ export default function ProjectEditor() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const pendingSaveRef = useRef(null);
-
-  async function flushPendingSave() {
-    if (pendingSaveRef.current) {
-      clearTimeout(pendingSaveRef.current.timer);
-      const { fileId, content } = pendingSaveRef.current;
-      pendingSaveRef.current = null;
-      try {
-        await updateFileContent(user.uid, projectId, fileId, content);
-      } catch (err) {
-        console.error('Error saving file:', err);
-      }
-    }
-  }
-
-  async function handleSelectFile(fileId) {
-    if (!user) return;
-    await flushPendingSave();
+  function handleSelectFile(fileId) {
     setSelectedFileId(fileId);
     setFilesMenuOpen(false);
-    try {
-      const file = await getFile(user.uid, projectId, fileId);
-      if (file) setFileContent(file.content || '');
-    } catch (err) {
-      console.error('Error loading file:', err);
-    }
   }
-
-  const handleContentChange = useCallback(
-    (newContent) => {
-      setFileContent(newContent);
-      if (!user || !selectedFileId) return;
-
-      // Cancel any pending save (might be for a different file)
-      if (pendingSaveRef.current?.timer) {
-        clearTimeout(pendingSaveRef.current.timer);
-      }
-
-      // Capture the current file ID at edit time, not save time
-      const fileIdAtEdit = selectedFileId;
-      const timer = setTimeout(async () => {
-        setSaving(true);
-        try {
-          await updateFileContent(user.uid, projectId, fileIdAtEdit, newContent);
-        } catch (err) {
-          console.error('Error saving file:', err);
-        } finally {
-          setSaving(false);
-          if (pendingSaveRef.current?.fileId === fileIdAtEdit) {
-            pendingSaveRef.current = null;
-          }
-        }
-      }, 2000);
-
-      pendingSaveRef.current = { fileId: fileIdAtEdit, content: newContent, timer };
-
-      // Auto-compile after save settles
-      if (autoCompile) {
-        if (autoCompileTimerRef.current) clearTimeout(autoCompileTimerRef.current);
-        autoCompileTimerRef.current = setTimeout(() => {
-          handleCompile();
-        }, 5000);
-      }
-    },
-    [user, projectId, selectedFileId, autoCompile]
-  );
 
   async function handleTitleBlur() {
     setEditingTitle(false);
     if (titleValue.trim() && titleValue !== project?.name) {
       try {
-        await updateProjectName(user.uid, projectId, titleValue.trim());
+        await updateProjectName(projectId, titleValue.trim());
       } catch (err) {
         console.error('Error updating project name:', err);
       }
@@ -148,29 +158,27 @@ export default function ProjectEditor() {
     if (!name || !name.trim()) return;
     const fullName = folderPrefix ? `${folderPrefix}${name.trim()}` : name.trim();
     try {
-      await createFile(user.uid, projectId, fullName, 'tex', '');
-      await reload();
+      await createFile(projectId, fullName, 'tex', '');
     } catch (err) {
       console.error('Error creating file:', err);
     }
   }
 
   async function handleUploadFile(e) {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
+    const uploadedFiles = Array.from(e.target.files);
+    if (!uploadedFiles.length) return;
     const textExtensions = ['.tex', '.bib', '.cls', '.sty', '.bst', '.tikz', '.dtx', '.ins', '.def', '.cfg', '.fd', '.bbx', '.cbx', '.lbx'];
     try {
-      for (const file of files) {
+      for (const file of uploadedFiles) {
         const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
         if (textExtensions.includes(ext)) {
           const content = await file.text();
-          await createFile(user.uid, projectId, file.name, 'tex', content);
+          await createFile(projectId, file.name, 'tex', content);
         } else {
-          await uploadFile(user.uid, projectId, file);
-          await createFile(user.uid, projectId, file.name, 'binary', '');
+          await uploadFile(projectId, file);
+          await createFile(projectId, file.name, 'binary', '');
         }
       }
-      await reload();
     } catch (err) {
       console.error('Error uploading file:', err);
     }
@@ -180,12 +188,10 @@ export default function ProjectEditor() {
   async function handleDeleteFile(fileId, fileName) {
     if (!window.confirm(`Delete "${fileName}"?`)) return;
     try {
-      await deleteFile(user.uid, projectId, fileId);
+      await deleteFile(projectId, fileId);
       if (selectedFileId === fileId) {
         setSelectedFileId(null);
-        setFileContent('');
       }
-      await reload();
     } catch (err) {
       console.error('Error deleting file:', err);
     }
@@ -199,6 +205,15 @@ export default function ProjectEditor() {
       return;
     }
 
+    // Flush current Yjs content to Firestore before compiling
+    if (yText && selectedFileId) {
+      try {
+        await updateFileContent(projectId, selectedFileId, yText.toString());
+      } catch (err) {
+        console.warn('Error flushing content before compile:', err);
+      }
+    }
+
     setCompiling(true);
     setCompileLog('');
     setCompileSuccess(null);
@@ -209,13 +224,13 @@ export default function ProjectEditor() {
       for (const f of files) {
         if (f.type === 'binary') {
           try {
-            const b64 = await getProjectFileAsBase64(user.uid, projectId, f.name);
+            const b64 = await getProjectFileAsBase64(projectId, f.name);
             allFiles.push({ name: f.name, content: b64, encoding: 'base64' });
           } catch (err) {
             console.warn(`Skipping binary file ${f.name}:`, err);
           }
         } else {
-          const full = await getFile(user.uid, projectId, f.id);
+          const full = await getFile(projectId, f.id);
           if (full) allFiles.push({ name: f.name, content: full.content || '', encoding: 'text' });
         }
       }
@@ -280,7 +295,7 @@ export default function ProjectEditor() {
         </div>
 
         <div className="nav-center">
-          {editingTitle ? (
+          {editingTitle && isOwner ? (
             <input
               className="nav-title-input"
               value={titleValue}
@@ -290,17 +305,37 @@ export default function ProjectEditor() {
               autoFocus
             />
           ) : (
-            <span className="nav-title" onClick={() => setEditingTitle(true)} title="Click to rename">
+            <span
+              className="nav-title"
+              onClick={() => isOwner && setEditingTitle(true)}
+              title={isOwner ? 'Click to rename' : project?.name}
+            >
               {project?.name || 'Untitled'}
             </span>
           )}
           {selectedFile && (
             <span className="nav-filename">{selectedFile.name}</span>
           )}
-          {saving && <span className="save-indicator">Saving...</span>}
+          {collabStatus === 'connecting' && <span className="save-indicator">Connecting...</span>}
+          {collabStatus === 'synced' && <span className="save-indicator synced">Synced</span>}
         </div>
 
         <div className="nav-right">
+          <button
+            className="nav-btn pane-toggle-btn"
+            onClick={() => setFileTreeVisible((v) => !v)}
+            title={fileTreeVisible ? 'Hide file tree' : 'Show file tree'}
+          >
+            {fileTreeVisible ? '◀' : '▶'}
+          </button>
+          <button
+            className="nav-btn pane-toggle-btn"
+            onClick={() => setPreviewVisible((v) => !v)}
+            title={previewVisible ? 'Hide PDF preview' : 'Show PDF preview'}
+          >
+            {previewVisible ? '▶' : '◀'}
+          </button>
+          <CollaboratorAvatars awareness={awareness} currentUser={user} />
           <input
             ref={fileInputRef}
             type="file"
@@ -309,6 +344,15 @@ export default function ProjectEditor() {
             onChange={handleUploadFile}
             accept=".tex,.bib,.cls,.sty,.bst,.png,.jpg,.jpeg,.gif,.svg,.pdf,.eps,.tikz,.dtx,.ins,.def,.cfg,.fd,.bbx,.cbx,.lbx"
           />
+          {isOwner && (
+            <button
+              className="nav-btn"
+              onClick={() => setShareDialogOpen(true)}
+              title="Share project"
+            >
+              Share
+            </button>
+          )}
           <button
             className="compile-btn"
             onClick={handleCompile}
@@ -338,22 +382,32 @@ export default function ProjectEditor() {
       <CompileLog log={compileLog} success={compileSuccess} />
 
       {/* Main Content: file tree + editor + preview */}
-      <div className="editor-layout">
-        <div className="file-tree-pane">
-          <FileTree
-            files={files}
-            selectedFileId={selectedFileId}
-            onSelectFile={handleSelectFile}
-            onDeleteFile={handleDeleteFile}
-            onAddFile={handleAddFile}
-            onUploadFile={() => fileInputRef.current?.click()}
-          />
-        </div>
-        <div className="editor-pane">
+      <div className={`editor-layout${isDragging ? ' is-dragging' : ''}`} ref={editorLayoutRef}>
+        {fileTreeVisible && (
+          <>
+            <div className="file-tree-pane" style={{ width: fileTreeWidth }}>
+              <FileTree
+                files={files}
+                selectedFileId={selectedFileId}
+                onSelectFile={handleSelectFile}
+                onDeleteFile={canEdit ? handleDeleteFile : undefined}
+                onAddFile={canEdit ? handleAddFile : undefined}
+                onUploadFile={canEdit ? () => fileInputRef.current?.click() : undefined}
+              />
+            </div>
+            <div
+              className="resize-handle"
+              onMouseDown={(e) => handleResizeStart(e, 'filetree')}
+            />
+          </>
+        )}
+        <div className="editor-pane" style={{ flex: previewVisible ? editorWidthPercent : 1 }}>
           {selectedFile ? (
             <Editor
-              value={fileContent}
-              onChange={handleContentChange}
+              yText={yText}
+              awareness={awareness}
+              undoManager={undoManager}
+              readOnly={!canEdit}
               insertRef={editorInsertRef}
             />
           ) : (
@@ -362,10 +416,27 @@ export default function ProjectEditor() {
             </div>
           )}
         </div>
-        <div className="preview-pane">
-          <PdfViewer pdfData={pdfData} compiling={compiling} />
-        </div>
+        {previewVisible && (
+          <>
+            <div
+              className="resize-handle"
+              onMouseDown={(e) => handleResizeStart(e, 'editor-preview')}
+            />
+            <div className="preview-pane" style={{ flex: 100 - editorWidthPercent }}>
+              <PdfViewer pdfData={pdfData} compiling={compiling} />
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Share Dialog */}
+      {shareDialogOpen && (
+        <ShareDialog
+          projectId={projectId}
+          project={project}
+          onClose={() => setShareDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
