@@ -201,8 +201,12 @@ async def compile_latex(req: CompileRequest, user=Depends(verify_token)):
             await run(["pdflatex", "-no-shell-escape", "-interaction=nonstopmode", "-output-directory=.", main])
             await run(["pdflatex", "-no-shell-escape", "-interaction=nonstopmode", "-output-directory=.", main])
 
-        pdf_path = job_dir / (Path(main).stem + ".pdf")
-        log_path = job_dir / (Path(main).stem + ".log")
+        stem = Path(main).stem
+        pdf_path = (job_dir / (stem + ".pdf")).resolve()
+        log_path = (job_dir / (stem + ".log")).resolve()
+        job_root = str(job_dir.resolve())
+        if not str(pdf_path).startswith(job_root) or not str(log_path).startswith(job_root):
+            raise HTTPException(status_code=400, detail="Invalid main file name")
         log = log_path.read_text() if log_path.exists() else ""
         errors = parse_latex_log(log) if log else []
 

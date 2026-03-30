@@ -20,16 +20,16 @@ describe('CompileLog', () => {
 
   it('shows log content when expanded', () => {
     render(<CompileLog log="Error on line 42" success={false} />);
-    // Click to show log
-    fireEvent.click(screen.getByText('show log'));
+    // Click to show full log
+    fireEvent.click(screen.getByText('show full log'));
     expect(screen.getByText('Error on line 42')).toBeInTheDocument();
   });
 
   it('hides log when toggled', () => {
     render(<CompileLog log="Error on line 42" success={false} />);
-    fireEvent.click(screen.getByText('show log'));
+    fireEvent.click(screen.getByText('show full log'));
     expect(screen.getByText('Error on line 42')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('hide log'));
+    fireEvent.click(screen.getByText('hide full log'));
     expect(screen.queryByText('Error on line 42')).not.toBeInTheDocument();
   });
 });
