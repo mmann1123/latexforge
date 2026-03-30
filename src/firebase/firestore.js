@@ -40,6 +40,7 @@ export async function createProject(userId, name) {
     name,
     ownerId: userId,
     collaborators: {},
+    deletedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -59,6 +60,7 @@ export async function getProjects(userId) {
   const q = query(
     collection(db, 'projects'),
     where('ownerId', '==', userId),
+    where('deletedAt', '==', null),
     orderBy('updatedAt', 'desc')
   );
   const snapshot = await getDocs(q);
@@ -67,7 +69,7 @@ export async function getProjects(userId) {
 
 export async function getSharedProjects(userId) {
   // Query on dynamic map key — no orderBy to avoid needing a composite index
-  // that can't be pre-created for every userId; sort client-side instead
+  // that can't be pre-created for every userId; sort and filter client-side
   const q = query(
     collection(db, 'projects'),
     where(`collaborators.${userId}`, 'in', ['editor', 'viewer'])
@@ -75,6 +77,7 @@ export async function getSharedProjects(userId) {
   const snapshot = await getDocs(q);
   return snapshot.docs
     .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((p) => !p.deletedAt)
     .sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
 }
 
@@ -85,20 +88,40 @@ export async function getProject(projectId) {
 }
 
 export async function deleteProject(projectId) {
-  // Delete all files in the project
+  // Soft-delete: set deletedAt timestamp instead of removing data
+  await updateDoc(doc(db, 'projects', projectId), {
+    deletedAt: serverTimestamp(),
+  });
+}
+
+export async function restoreProject(projectId) {
+  await updateDoc(doc(db, 'projects', projectId), {
+    deletedAt: null,
+  });
+}
+
+export async function getDeletedProjects(userId) {
+  const q = query(
+    collection(db, 'projects'),
+    where('ownerId', '==', userId),
+    where('deletedAt', '!=', null)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function permanentlyDeleteProject(projectId) {
+  // Hard-delete: remove all subcollections and the project doc
   const filesSnapshot = await getDocs(
     collection(db, 'projects', projectId, 'files')
   );
-  const deletePromises = filesSnapshot.docs.map((d) => deleteDoc(d.ref));
-  await Promise.all(deletePromises);
+  await Promise.all(filesSnapshot.docs.map((d) => deleteDoc(d.ref)));
 
-  // Delete all yjs docs
   const yjsSnapshot = await getDocs(
     collection(db, 'projects', projectId, 'yjs')
   );
   await Promise.all(yjsSnapshot.docs.map((d) => deleteDoc(d.ref)));
 
-  // Delete all presence docs
   const presenceSnapshot = await getDocs(
     collection(db, 'projects', projectId, 'presence')
   );

@@ -30,12 +30,23 @@ const NUMBERED_SNIPPET = `\\begin{enumerate}
   \\item
 \\end{enumerate}`;
 
-export default function Toolbar({ onInsert }) {
+export default function Toolbar({ onInsert, onUndo, onRedo }) {
   const [figureOpen, setFigureOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
 
   return (
     <div className="toolbar">
+      {onUndo && (
+        <button className="toolbar-btn" title="Undo (Ctrl+Z)" onClick={onUndo}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.7 7.3L2 10l2.7 2.7.6-.7L3.8 10.5H10c1.9 0 3.5-1.6 3.5-3.5S11.9 3.5 10 3.5H7v1h3c1.4 0 2.5 1.1 2.5 2.5S11.4 9.5 10 9.5H3.8L5.3 8l-.6-.7z"/></svg>
+        </button>
+      )}
+      {onRedo && (
+        <button className="toolbar-btn" title="Redo (Ctrl+Shift+Z)" onClick={onRedo}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.3 7.3L14 10l-2.7 2.7-.6-.7 1.5-1.5H6c-1.9 0-3.5-1.6-3.5-3.5S4.1 3.5 6 3.5h3v1H6C4.6 4.5 3.5 5.6 3.5 7S4.6 9.5 6 9.5h6.2L10.7 8l.6-.7z"/></svg>
+        </button>
+      )}
+      <span className="toolbar-sep" />
       <button className="toolbar-btn" title="Bold (\\textbf)" onClick={() => onInsert('\\textbf{}')}>
         <strong>B</strong>
       </button>

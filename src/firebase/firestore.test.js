@@ -135,18 +135,13 @@ describe('firestore module', () => {
   });
 
   describe('deleteProject', () => {
-    it('deletes files, yjs docs, presence docs, and the project doc', async () => {
-      // Mock subcollection queries
-      mockGetDocs
-        .mockResolvedValueOnce({ docs: [{ ref: 'file-ref-1' }, { ref: 'file-ref-2' }] }) // files
-        .mockResolvedValueOnce({ docs: [{ ref: 'yjs-ref-1' }] })  // yjs
-        .mockResolvedValueOnce({ docs: [{ ref: 'presence-ref-1' }] }); // presence
-      mockDeleteDoc.mockResolvedValue();
+    it('soft-deletes by setting deletedAt timestamp', async () => {
+      mockUpdateDoc.mockResolvedValue();
 
       await deleteProject('proj-1');
 
-      // files (2) + yjs (1) + presence (1) + project doc (1) = 5 deletes
-      expect(mockDeleteDoc).toHaveBeenCalledTimes(5);
+      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
+      expect(mockUpdateDoc.mock.calls[0][1]).toHaveProperty('deletedAt');
     });
   });
 

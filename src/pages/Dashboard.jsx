@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { getProjects, getSharedProjects, createProject, deleteProject } from '../firebase/firestore.js';
+import { getProjects, getSharedProjects, getDeletedProjects, createProject, deleteProject, restoreProject, permanentlyDeleteProject } from '../firebase/firestore.js';
 import { getPendingInvitations, acceptInvitation, declineInvitation } from '../firebase/sharing.js';
 import { logout } from '../firebase/auth.js';
 
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [sharedProjects, setSharedProjects] = useState([]);
+  const [deletedProjects, setDeletedProjects] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,14 +18,16 @@ export default function Dashboard() {
     if (!user) return;
     setLoading(true);
     try {
-      const [ownedResult, sharedResult, pendingResult] = await Promise.allSettled([
+      const [ownedResult, sharedResult, pendingResult, deletedResult] = await Promise.allSettled([
         getProjects(user.uid),
         getSharedProjects(user.uid),
         getPendingInvitations(user.email),
+        getDeletedProjects(user.uid),
       ]);
       setProjects(ownedResult.status === 'fulfilled' ? ownedResult.value : []);
       setSharedProjects(sharedResult.status === 'fulfilled' ? sharedResult.value : []);
       setInvitations(pendingResult.status === 'fulfilled' ? pendingResult.value : []);
+      setDeletedProjects(deletedResult.status === 'fulfilled' ? deletedResult.value : []);
       if (ownedResult.status === 'rejected') console.error('Error loading owned projects:', ownedResult.reason);
       if (sharedResult.status === 'rejected') console.error('Error loading shared projects:', sharedResult.reason);
       if (pendingResult.status === 'rejected') console.error('Error loading invitations:', pendingResult.reason);
@@ -52,12 +55,33 @@ export default function Dashboard() {
   }
 
   async function handleDelete(projectId, projectName) {
-    if (!window.confirm(`Delete "${projectName}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Move "${projectName}" to trash?`)) return;
     try {
       await deleteProject(projectId);
+      const moved = projects.find((p) => p.id === projectId);
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      if (moved) setDeletedProjects((prev) => [{ ...moved, deletedAt: new Date() }, ...prev]);
     } catch (err) {
       console.error('Error deleting project:', err);
+    }
+  }
+
+  async function handleRestore(projectId) {
+    try {
+      await restoreProject(projectId);
+      await loadProjects();
+    } catch (err) {
+      console.error('Error restoring project:', err);
+    }
+  }
+
+  async function handlePermanentDelete(projectId, projectName) {
+    if (!window.confirm(`Permanently delete "${projectName}"? This cannot be undone.`)) return;
+    try {
+      await permanentlyDeleteProject(projectId);
+      setDeletedProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (err) {
+      console.error('Error permanently deleting project:', err);
     }
   }
 
@@ -182,6 +206,33 @@ export default function Dashboard() {
                   <div className="project-card-actions">
                     <button className="btn btn-primary btn-sm" onClick={() => navigate(`/project/${p.id}`)}>
                       Open
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Trash */}
+        {deletedProjects.length > 0 && (
+          <>
+            <div className="dashboard-top" style={{ marginTop: '2rem' }}>
+              <h2>Trash</h2>
+            </div>
+            <div className="project-grid">
+              {deletedProjects.map((p) => (
+                <div key={p.id} className="project-card project-card-deleted">
+                  <div className="project-card-body">
+                    <h3>{p.name}</h3>
+                    <span className="project-date">Deleted {formatDate(p.deletedAt)}</span>
+                  </div>
+                  <div className="project-card-actions">
+                    <button className="btn btn-primary btn-sm" onClick={() => handleRestore(p.id)}>
+                      Restore
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handlePermanentDelete(p.id, p.name)}>
+                      Delete Forever
                     </button>
                   </div>
                 </div>

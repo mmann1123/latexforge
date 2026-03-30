@@ -4,10 +4,30 @@ import Toolbar from './Toolbar.jsx';
 
 describe('Toolbar', () => {
   it('renders formatting buttons', () => {
-    render(<Toolbar onInsert={vi.fn()} />);
+    render(<Toolbar onInsert={vi.fn()} onUndo={vi.fn()} onRedo={vi.fn()} />);
     expect(screen.getByTitle('Bold (\\\\textbf)')).toBeInTheDocument();
     expect(screen.getByTitle('Italic (\\\\textit)')).toBeInTheDocument();
     expect(screen.getByTitle('Section (\\\\section)')).toBeInTheDocument();
+  });
+
+  it('renders undo and redo buttons', () => {
+    render(<Toolbar onInsert={vi.fn()} onUndo={vi.fn()} onRedo={vi.fn()} />);
+    expect(screen.getByTitle('Undo (Ctrl+Z)')).toBeInTheDocument();
+    expect(screen.getByTitle('Redo (Ctrl+Shift+Z)')).toBeInTheDocument();
+  });
+
+  it('calls onUndo when undo button is clicked', () => {
+    const onUndo = vi.fn();
+    render(<Toolbar onInsert={vi.fn()} onUndo={onUndo} onRedo={vi.fn()} />);
+    fireEvent.click(screen.getByTitle('Undo (Ctrl+Z)'));
+    expect(onUndo).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onRedo when redo button is clicked', () => {
+    const onRedo = vi.fn();
+    render(<Toolbar onInsert={vi.fn()} onUndo={vi.fn()} onRedo={onRedo} />);
+    fireEvent.click(screen.getByTitle('Redo (Ctrl+Shift+Z)'));
+    expect(onRedo).toHaveBeenCalledTimes(1);
   });
 
   it('renders math buttons', () => {

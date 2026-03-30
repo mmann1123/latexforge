@@ -48,6 +48,7 @@ export default function ProjectEditor() {
 
   const editorInsertRef = useRef(null);
   const editorGoToLineRef = useRef(null);
+  const editorUndoRedoRef = useRef(null);
   const fileInputRef = useRef(null);
   const filesMenuRef = useRef(null);
   const editorLayoutRef = useRef(null);
@@ -478,7 +479,11 @@ export default function ProjectEditor() {
           </>
         )}
         <div className="editor-pane" style={{ flex: previewVisible ? editorWidthPercent : 1 }}>
-          <Toolbar onInsert={handleInsertSnippet} />
+          <Toolbar
+            onInsert={handleInsertSnippet}
+            onUndo={() => editorUndoRedoRef.current?.undo()}
+            onRedo={() => editorUndoRedoRef.current?.redo()}
+          />
           <CompileLog
             log={compileLog}
             success={compileSuccess}
@@ -497,6 +502,7 @@ export default function ProjectEditor() {
                 readOnly={!canEdit}
                 insertRef={editorInsertRef}
                 goToLineRef={editorGoToLineRef}
+                undoRedoRef={editorUndoRedoRef}
               />
             )
           ) : (

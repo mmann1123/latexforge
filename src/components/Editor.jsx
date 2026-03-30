@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab, undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
 import { bracketMatching, indentOnInput, StreamLanguage } from '@codemirror/language';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
@@ -63,7 +63,7 @@ const latexLanguage = StreamLanguage.define(latexStreamParser);
  * 2. Legacy/solo mode (value + onChange props):
  *    Controlled component with debounced saves.
  */
-export default function Editor({ yText, awareness, undoManager, readOnly, value, onChange, insertRef, goToLineRef }) {
+export default function Editor({ yText, awareness, undoManager, readOnly, value, onChange, insertRef, goToLineRef, undoRedoRef }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const isExternalUpdate = useRef(false);
@@ -230,6 +230,28 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
       };
     }
   }, [goToLineRef]);
+
+  // Expose undo/redo to parent via ref
+  useEffect(() => {
+    if (undoRedoRef) {
+      undoRedoRef.current = {
+        undo: () => {
+          if (isCollaborative && undoManager) {
+            undoManager.undo();
+          } else if (viewRef.current) {
+            cmUndo(viewRef.current);
+          }
+        },
+        redo: () => {
+          if (isCollaborative && undoManager) {
+            undoManager.redo();
+          } else if (viewRef.current) {
+            cmRedo(viewRef.current);
+          }
+        },
+      };
+    }
+  }, [undoRedoRef, undoManager, isCollaborative]);
 
   return <div className="editor-container" ref={containerRef} />;
 }

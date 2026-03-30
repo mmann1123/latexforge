@@ -1106,15 +1106,16 @@ body {
 /* Replace "next"/"previous" text with < > arrows */
 .cm-search button[name="next"],
 .cm-search button[name="prev"] {
-  font-size: 0; /* hide original text */
+  font-size: 0;
+  padding: 2px 6px;
 }
 .cm-search button[name="next"]::after {
   content: '\203A'; /* › */
-  font-size: 18px;
+  font-size: 15px;
 }
 .cm-search button[name="prev"]::after {
   content: '\2039'; /* ‹ */
-  font-size: 18px;
+  font-size: 15px;
 }
 /* Hide "all" button in search panel */
 .cm-search button[name="select"] {
@@ -1380,6 +1381,13 @@ body {
 
 .project-card-shared {
   border-left: 3px solid var(--accent);
+}
+.project-card-deleted {
+  opacity: 0.5;
+  border-left: 3px solid var(--text-muted);
+}
+.project-card-deleted:hover {
+  opacity: 0.8;
 }
 
 /* ===== Sync indicator ===== */
