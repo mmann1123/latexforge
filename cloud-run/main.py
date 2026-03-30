@@ -20,9 +20,10 @@ COMPILE_TIMEOUT = int(os.environ.get("COMPILE_TIMEOUT", "30"))
 
 if not DEV_MODE:
     import firebase_admin
-    from firebase_admin import auth, credentials
+    from firebase_admin import auth, credentials, firestore as admin_firestore
     cred = credentials.ApplicationDefault()
     firebase_admin.initialize_app(cred)
+    _firestore_client = admin_firestore.client()
 
 app = FastAPI()
 
@@ -56,13 +57,25 @@ class CompileRequest(BaseModel):
     mainFile: str
     files: list[FileItem]
 
+def _is_email_allowed(email: str) -> bool:
+    """Check static env var list, then Firestore allowlist."""
+    if email in ALLOWED_EMAILS:
+        return True
+    try:
+        snap = _firestore_client.document("config/allowedEmails").get()
+        if snap.exists:
+            return email in (snap.to_dict().get("emails") or [])
+    except Exception:
+        pass
+    return False
+
 async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if DEV_MODE:
         return {"uid": "dev-user", "email": "dev@localhost"}
     try:
         decoded = auth.verify_id_token(credentials.credentials)
         email = decoded.get("email", "")
-        if email not in ALLOWED_EMAILS:
+        if not _is_email_allowed(email):
             raise HTTPException(status_code=403, detail="Access denied")
         return decoded
     except HTTPException:

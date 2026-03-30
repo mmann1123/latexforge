@@ -106,13 +106,23 @@ export class FirestorePresenceProvider {
   async _writePresence() {
     if (this.destroyed) return;
     const localState = this.awareness.getLocalState();
+    // Convert cursor to plain JSON — Yjs RelativePosition objects are not
+    // serializable by Firestore, so we strip them to simple {anchor, head} numbers
+    let cursor = null;
+    if (localState?.cursor) {
+      const c = localState.cursor;
+      cursor = {
+        anchor: typeof c.anchor === 'number' ? c.anchor : (c.anchor?.index ?? null),
+        head: typeof c.head === 'number' ? c.head : (c.head?.index ?? null),
+      };
+    }
     try {
       await setDoc(this.presenceRef, {
         uid: this.user.uid,
         displayName: this.user.displayName || 'Anonymous',
         color: uidToColor(this.user.uid),
         fileId: this.fileId,
-        cursor: localState?.cursor || null,
+        cursor,
         lastSeen: serverTimestamp(),
       });
     } catch (err) {

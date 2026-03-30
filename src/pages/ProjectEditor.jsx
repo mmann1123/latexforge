@@ -35,10 +35,69 @@ export default function ProjectEditor() {
   const [filesMenuOpen, setFilesMenuOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [autoCompile, setAutoCompile] = useState(() => localStorage.getItem('latexforge-autocompile') === 'true');
+
+  // Resizable pane state
+  const [fileTreeVisible, setFileTreeVisible] = useState(() => localStorage.getItem('latexforge-filetree-visible') !== 'false');
+  const [previewVisible, setPreviewVisible] = useState(() => localStorage.getItem('latexforge-preview-visible') !== 'false');
+  const [fileTreeWidth, setFileTreeWidth] = useState(() => Number(localStorage.getItem('latexforge-filetree-width')) || 220);
+  const [editorWidthPercent, setEditorWidthPercent] = useState(() => Number(localStorage.getItem('latexforge-editor-pct')) || 50);
+  const [isDragging, setIsDragging] = useState(false);
+
   const editorInsertRef = useRef(null);
   const fileInputRef = useRef(null);
   const filesMenuRef = useRef(null);
   const autoCompileTimerRef = useRef(null);
+  const editorLayoutRef = useRef(null);
+  const dragTypeRef = useRef(null);
+
+  // Persist pane layout to localStorage
+  useEffect(() => { localStorage.setItem('latexforge-filetree-visible', fileTreeVisible); }, [fileTreeVisible]);
+  useEffect(() => { localStorage.setItem('latexforge-preview-visible', previewVisible); }, [previewVisible]);
+  useEffect(() => { localStorage.setItem('latexforge-filetree-width', fileTreeWidth); }, [fileTreeWidth]);
+  useEffect(() => { localStorage.setItem('latexforge-editor-pct', editorWidthPercent); }, [editorWidthPercent]);
+
+  // Drag-to-resize handlers
+  const handleResizeStart = useCallback((e, type) => {
+    e.preventDefault();
+    dragTypeRef.current = type;
+    setIsDragging(true);
+    const startX = e.clientX;
+    const layout = editorLayoutRef.current;
+    if (!layout) return;
+    const layoutRect = layout.getBoundingClientRect();
+    const startFileTreeWidth = fileTreeWidth;
+    const startEditorPct = editorWidthPercent;
+
+    function onMouseMove(ev) {
+      const dx = ev.clientX - startX;
+      if (dragTypeRef.current === 'filetree') {
+        const newWidth = Math.max(150, Math.min(500, startFileTreeWidth + dx));
+        setFileTreeWidth(newWidth);
+      } else if (dragTypeRef.current === 'editor-preview') {
+        const ftw = fileTreeVisible ? fileTreeWidth : 0;
+        const handleWidth = 6;
+        const available = layoutRect.width - ftw - handleWidth * (fileTreeVisible ? 2 : 1);
+        const editorStartPx = (startEditorPct / 100) * available;
+        const newEditorPx = editorStartPx + dx;
+        const newPct = Math.max(20, Math.min(80, (newEditorPx / available) * 100));
+        setEditorWidthPercent(newPct);
+      }
+    }
+
+    function onMouseUp() {
+      setIsDragging(false);
+      dragTypeRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [fileTreeWidth, editorWidthPercent, fileTreeVisible]);
 
   const isOwner = project?.ownerId === user?.uid;
   const userRole = isOwner ? 'owner' : (project?.collaborators?.[user?.uid] || null);
@@ -262,6 +321,20 @@ export default function ProjectEditor() {
         </div>
 
         <div className="nav-right">
+          <button
+            className="nav-btn pane-toggle-btn"
+            onClick={() => setFileTreeVisible((v) => !v)}
+            title={fileTreeVisible ? 'Hide file tree' : 'Show file tree'}
+          >
+            {fileTreeVisible ? '◀' : '▶'}
+          </button>
+          <button
+            className="nav-btn pane-toggle-btn"
+            onClick={() => setPreviewVisible((v) => !v)}
+            title={previewVisible ? 'Hide PDF preview' : 'Show PDF preview'}
+          >
+            {previewVisible ? '▶' : '◀'}
+          </button>
           <CollaboratorAvatars awareness={awareness} currentUser={user} />
           <input
             ref={fileInputRef}
@@ -309,18 +382,26 @@ export default function ProjectEditor() {
       <CompileLog log={compileLog} success={compileSuccess} />
 
       {/* Main Content: file tree + editor + preview */}
-      <div className="editor-layout">
-        <div className="file-tree-pane">
-          <FileTree
-            files={files}
-            selectedFileId={selectedFileId}
-            onSelectFile={handleSelectFile}
-            onDeleteFile={canEdit ? handleDeleteFile : undefined}
-            onAddFile={canEdit ? handleAddFile : undefined}
-            onUploadFile={canEdit ? () => fileInputRef.current?.click() : undefined}
-          />
-        </div>
-        <div className="editor-pane">
+      <div className={`editor-layout${isDragging ? ' is-dragging' : ''}`} ref={editorLayoutRef}>
+        {fileTreeVisible && (
+          <>
+            <div className="file-tree-pane" style={{ width: fileTreeWidth }}>
+              <FileTree
+                files={files}
+                selectedFileId={selectedFileId}
+                onSelectFile={handleSelectFile}
+                onDeleteFile={canEdit ? handleDeleteFile : undefined}
+                onAddFile={canEdit ? handleAddFile : undefined}
+                onUploadFile={canEdit ? () => fileInputRef.current?.click() : undefined}
+              />
+            </div>
+            <div
+              className="resize-handle"
+              onMouseDown={(e) => handleResizeStart(e, 'filetree')}
+            />
+          </>
+        )}
+        <div className="editor-pane" style={{ flex: previewVisible ? editorWidthPercent : 1 }}>
           {selectedFile ? (
             <Editor
               yText={yText}
@@ -335,9 +416,17 @@ export default function ProjectEditor() {
             </div>
           )}
         </div>
-        <div className="preview-pane">
-          <PdfViewer pdfData={pdfData} compiling={compiling} />
-        </div>
+        {previewVisible && (
+          <>
+            <div
+              className="resize-handle"
+              onMouseDown={(e) => handleResizeStart(e, 'editor-preview')}
+            />
+            <div className="preview-pane" style={{ flex: 100 - editorWidthPercent }}>
+              <PdfViewer pdfData={pdfData} compiling={compiling} />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Share Dialog */}

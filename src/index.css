@@ -666,10 +666,37 @@ body {
   overflow: hidden;
 }
 
+/* --- Resize Handle --- */
+.resize-handle {
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+}
+.resize-handle:hover,
+.editor-layout.is-dragging .resize-handle {
+  background: var(--accent);
+  opacity: 0.5;
+}
+.editor-layout.is-dragging {
+  cursor: col-resize;
+}
+
+/* --- Pane Toggle Buttons --- */
+.pane-toggle-btn {
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  min-width: 28px;
+  opacity: 0.7;
+}
+.pane-toggle-btn:hover {
+  opacity: 1;
+}
+
 /* --- File Tree Sidebar --- */
 .file-tree-pane {
-  width: 220px;
-  min-width: 180px;
   background: #1e1e1e;
   border-right: 1px solid #333;
   display: flex;
@@ -708,6 +735,21 @@ body {
   cursor: pointer;
 }
 .tree-header-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+.tree-icon-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tree-icon-btn:hover {
+  color: #fff;
   background: rgba(255,255,255,0.1);
 }
 .file-tree-content {
@@ -805,16 +847,17 @@ body {
 
 .editor-pane {
   flex: 1;
+  min-width: 200px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 .preview-pane {
   flex: 1;
+  min-width: 200px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-left: 2px solid #ccc;
   background: #fff;
 }
 .editor-placeholder {

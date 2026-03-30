@@ -66,15 +66,16 @@ export async function getProjects(userId) {
 }
 
 export async function getSharedProjects(userId) {
-  // Firestore can query map keys with "collaborators.{uid}" != null
-  // but the recommended approach is a where clause on a map key
+  // Query on dynamic map key — no orderBy to avoid needing a composite index
+  // that can't be pre-created for every userId; sort client-side instead
   const q = query(
     collection(db, 'projects'),
-    where(`collaborators.${userId}`, 'in', ['editor', 'viewer']),
-    orderBy('updatedAt', 'desc')
+    where(`collaborators.${userId}`, 'in', ['editor', 'viewer'])
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
 }
 
 export async function getProject(projectId) {

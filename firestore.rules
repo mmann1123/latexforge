@@ -49,7 +49,12 @@ service cloud.firestore {
       // On create: must set ownerId to self
       allow create: if request.auth != null
                     && request.resource.data.ownerId == request.auth.uid;
-      allow update: if request.auth != null && canWrite();
+      // Allow update if user canWrite OR if they are accepting an invitation
+      // (adding only their own uid to the collaborators map)
+      allow update: if request.auth != null
+                    && (canWrite()
+                        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['collaborators'])
+                            && request.resource.data.collaborators[request.auth.uid] in ['editor', 'viewer']));
       allow delete: if request.auth != null && isOwner();
 
       // Files subcollection

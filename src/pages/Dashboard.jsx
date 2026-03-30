@@ -17,14 +17,17 @@ export default function Dashboard() {
     if (!user) return;
     setLoading(true);
     try {
-      const [owned, shared, pending] = await Promise.all([
+      const [ownedResult, sharedResult, pendingResult] = await Promise.allSettled([
         getProjects(user.uid),
         getSharedProjects(user.uid),
         getPendingInvitations(user.email),
       ]);
-      setProjects(owned);
-      setSharedProjects(shared);
-      setInvitations(pending);
+      setProjects(ownedResult.status === 'fulfilled' ? ownedResult.value : []);
+      setSharedProjects(sharedResult.status === 'fulfilled' ? sharedResult.value : []);
+      setInvitations(pendingResult.status === 'fulfilled' ? pendingResult.value : []);
+      if (ownedResult.status === 'rejected') console.error('Error loading owned projects:', ownedResult.reason);
+      if (sharedResult.status === 'rejected') console.error('Error loading shared projects:', sharedResult.reason);
+      if (pendingResult.status === 'rejected') console.error('Error loading invitations:', pendingResult.reason);
     } catch (err) {
       console.error('Error loading projects:', err);
     } finally {
