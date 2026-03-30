@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function CompileLog({ log, success }) {
   const [expanded, setExpanded] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  // Auto-dismiss success banner after 3 seconds
+  useEffect(() => {
+    setDismissed(false);
+    if (success === true) {
+      const timer = setTimeout(() => setDismissed(true), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success, log]);
 
   // Nothing to show
   if (success === null && !log) return null;
+  if (dismissed && success === true) return null;
 
   const isSuccess = success === true;
   const isError = success === false;

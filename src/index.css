@@ -364,6 +364,21 @@ body {
   font-size: 15px;
   white-space: nowrap;
 }
+.nav-github-link {
+  color: rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+.nav-github-link:hover {
+  color: #fff;
+}
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+}
 .nav-center {
   flex: 1;
   display: flex;
@@ -860,6 +875,49 @@ body {
   flex-direction: column;
   background: #fff;
 }
+/* --- File Preview (binary files) --- */
+.file-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #1e1e1e;
+}
+.file-preview-header {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  border-bottom: 1px solid #333;
+  background: #252525;
+}
+.file-preview-content {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.file-preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.file-preview-pdf {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+.file-preview-error,
+.file-preview-unsupported {
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 14px;
+}
+.file-preview-unsupported a {
+  color: var(--accent);
+}
+
 .editor-placeholder {
   display: flex;
   align-items: center;
@@ -1133,6 +1191,11 @@ body {
 /* ===== Sync indicator ===== */
 .save-indicator.synced {
   color: var(--accent);
+}
+.save-indicator.saved {
+  color: #4caf50;
+  font-weight: 600;
+  animation: none;
 }
 
 /* ===== Remote cursor labels (y-codemirror.next) ===== */

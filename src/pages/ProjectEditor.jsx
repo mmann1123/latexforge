@@ -18,6 +18,7 @@ import CompileLog from '../components/CompileLog.jsx';
 import FileTree from '../components/FileTree.jsx';
 import ShareDialog from '../components/ShareDialog.jsx';
 import CollaboratorAvatars from '../components/CollaboratorAvatars.jsx';
+import FilePreview from '../components/FilePreview.jsx';
 
 export default function ProjectEditor() {
   const { projectId } = useParams();
@@ -42,6 +43,7 @@ export default function ProjectEditor() {
   const [fileTreeWidth, setFileTreeWidth] = useState(() => Number(localStorage.getItem('latexforge-filetree-width')) || 220);
   const [editorWidthPercent, setEditorWidthPercent] = useState(() => Number(localStorage.getItem('latexforge-editor-pct')) || 50);
   const [isDragging, setIsDragging] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(false);
 
   const editorInsertRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -135,6 +137,25 @@ export default function ProjectEditor() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  // Ctrl+S to force sync
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (yText && selectedFileId) {
+          updateFileContent(projectId, selectedFileId, yText.toString())
+            .then(() => {
+              setSaveFlash(true);
+              setTimeout(() => setSaveFlash(false), 1500);
+            })
+            .catch((err) => console.error('Error saving:', err));
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [yText, selectedFileId, projectId]);
 
   function handleSelectFile(fileId) {
     setSelectedFileId(fileId);
@@ -292,6 +313,15 @@ export default function ProjectEditor() {
             &larr;
           </button>
           <span className="nav-logo">LaTeX Forge</span>
+          <a
+            href="https://github.com/mmann1123/latexforge/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="nav-github-link"
+            title="Report an issue"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          </a>
         </div>
 
         <div className="nav-center">
@@ -317,7 +347,11 @@ export default function ProjectEditor() {
             <span className="nav-filename">{selectedFile.name}</span>
           )}
           {collabStatus === 'connecting' && <span className="save-indicator">Connecting...</span>}
-          {collabStatus === 'synced' && <span className="save-indicator synced">Synced</span>}
+          {saveFlash ? (
+            <span className="save-indicator saved">Saved</span>
+          ) : (
+            collabStatus === 'synced' && <span className="save-indicator synced">Synced</span>
+          )}
         </div>
 
         <div className="nav-right">
@@ -375,12 +409,6 @@ export default function ProjectEditor() {
         </div>
       </nav>
 
-      {/* Toolbar */}
-      <Toolbar onInsert={handleInsertSnippet} />
-
-      {/* Compile Log Banner */}
-      <CompileLog log={compileLog} success={compileSuccess} />
-
       {/* Main Content: file tree + editor + preview */}
       <div className={`editor-layout${isDragging ? ' is-dragging' : ''}`} ref={editorLayoutRef}>
         {fileTreeVisible && (
@@ -402,14 +430,20 @@ export default function ProjectEditor() {
           </>
         )}
         <div className="editor-pane" style={{ flex: previewVisible ? editorWidthPercent : 1 }}>
+          <Toolbar onInsert={handleInsertSnippet} />
+          <CompileLog log={compileLog} success={compileSuccess} />
           {selectedFile ? (
-            <Editor
-              yText={yText}
-              awareness={awareness}
-              undoManager={undoManager}
-              readOnly={!canEdit}
-              insertRef={editorInsertRef}
-            />
+            selectedFile.type === 'binary' ? (
+              <FilePreview projectId={projectId} fileName={selectedFile.name} />
+            ) : (
+              <Editor
+                yText={yText}
+                awareness={awareness}
+                undoManager={undoManager}
+                readOnly={!canEdit}
+                insertRef={editorInsertRef}
+              />
+            )
           ) : (
             <div className="editor-placeholder">
               <p>Select a file to begin editing</p>
