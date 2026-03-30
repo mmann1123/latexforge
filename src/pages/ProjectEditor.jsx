@@ -37,7 +37,6 @@ export default function ProjectEditor() {
   const [titleValue, setTitleValue] = useState('');
   const [filesMenuOpen, setFilesMenuOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [autoCompile, setAutoCompile] = useState(() => localStorage.getItem('latexforge-autocompile') === 'true');
 
   // Resizable pane state
   const [fileTreeVisible, setFileTreeVisible] = useState(() => localStorage.getItem('latexforge-filetree-visible') !== 'false');
@@ -51,7 +50,6 @@ export default function ProjectEditor() {
   const editorGoToLineRef = useRef(null);
   const fileInputRef = useRef(null);
   const filesMenuRef = useRef(null);
-  const autoCompileTimerRef = useRef(null);
   const editorLayoutRef = useRef(null);
   const dragTypeRef = useRef(null);
 
@@ -452,18 +450,6 @@ export default function ProjectEditor() {
             disabled={compiling}
           >
             {compiling ? 'Compiling...' : 'Compile'}
-          </button>
-          <button
-            className={`nav-btn auto-compile-btn ${autoCompile ? 'auto-compile-active' : ''}`}
-            onClick={() => {
-              const next = !autoCompile;
-              setAutoCompile(next);
-              localStorage.setItem('latexforge-autocompile', next);
-              if (!next && autoCompileTimerRef.current) clearTimeout(autoCompileTimerRef.current);
-            }}
-            title={autoCompile ? 'Disable auto-compile' : 'Enable auto-compile'}
-          >
-            Auto {autoCompile ? 'ON' : 'OFF'}
           </button>
         </div>
       </nav>
