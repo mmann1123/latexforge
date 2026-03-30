@@ -3,7 +3,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching, indentOnInput, StreamLanguage } from '@codemirror/language';
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { yCollab } from 'y-codemirror.next';
@@ -92,6 +92,7 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
       drawSelection(),
       indentOnInput(),
       bracketMatching(),
+      search(),
       highlightSelectionMatches(),
       latexLanguage,
       autocompletion({ override: [latexCompletionSource] }),
@@ -149,6 +150,7 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
         indentOnInput(),
         bracketMatching(),
         history(),
+        search(),
         highlightSelectionMatches(),
         latexLanguage,
         autocompletion({ override: [latexCompletionSource] }),

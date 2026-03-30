@@ -1099,6 +1099,28 @@ body {
   height: 100%;
 }
 
+/* --- CodeMirror Search Panel --- */
+.cm-search button[name="close"] {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  font-size: 18px;
+  color: #ccc;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+}
+.cm-search button[name="close"]:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+.cm-search {
+  position: relative;
+}
+
 /* --- PDF Viewer --- */
 .pdf-viewer {
   display: flex;
