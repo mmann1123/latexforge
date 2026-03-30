@@ -37,5 +37,6 @@ jobs:
         working-directory: cloud-run
     steps:
       - uses: actions/checkout@v4
-      - run: pip install -r requirements.txt pytest httpx
+      - run: apt-get update && apt-get install -y python3-pip
+      - run: pip install --break-system-packages -r requirements.txt pytest httpx
       - run: pytest
