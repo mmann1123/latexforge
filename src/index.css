@@ -1100,25 +1100,34 @@ body {
 }
 
 /* --- CodeMirror Search Panel --- */
+.cm-search button {
+  cursor: pointer;
+}
+/* Replace "next"/"previous" text with < > arrows */
+.cm-search button[name="next"],
+.cm-search button[name="prev"] {
+  font-size: 0; /* hide original text */
+}
+.cm-search button[name="next"]::after {
+  content: '\203A'; /* › */
+  font-size: 18px;
+}
+.cm-search button[name="prev"]::after {
+  content: '\2039'; /* ‹ */
+  font-size: 18px;
+}
+/* Hide "all" button in search panel */
+.cm-search button[name="select"] {
+  display: none;
+}
+/* Make close button more visible */
 .cm-search button[name="close"] {
-  position: absolute;
-  right: 4px;
-  top: 4px;
   font-size: 18px;
   color: #ccc;
-  background: none;
-  border: none;
-  cursor: pointer;
   padding: 2px 6px;
-  line-height: 1;
 }
 .cm-search button[name="close"]:hover {
   color: #fff;
-  background: rgba(255,255,255,0.1);
-  border-radius: 3px;
-}
-.cm-search {
-  position: relative;
 }
 
 /* --- PDF Viewer --- */
