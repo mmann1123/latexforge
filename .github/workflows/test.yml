@@ -30,14 +30,12 @@ jobs:
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
+    container:
+      image: texlive/texlive:latest
     defaults:
       run:
         working-directory: cloud-run
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
       - run: pip install -r requirements.txt pytest httpx
       - run: pytest
