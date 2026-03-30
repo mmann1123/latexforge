@@ -36,14 +36,14 @@ export default function Toolbar({ onInsert }) {
 
   return (
     <div className="toolbar">
-      <button className="toolbar-btn" title="Bold (\textbf)" onClick={() => onInsert('\\textbf{}')}>
+      <button className="toolbar-btn" title="Bold (\\textbf)" onClick={() => onInsert('\\textbf{}')}>
         <strong>B</strong>
       </button>
-      <button className="toolbar-btn toolbar-btn-italic" title="Italic (\textit)" onClick={() => onInsert('\\textit{}')}>
+      <button className="toolbar-btn toolbar-btn-italic" title="Italic (\\textit)" onClick={() => onInsert('\\textit{}')}>
         <em>I</em>
       </button>
       <span className="toolbar-sep" />
-      <button className="toolbar-btn" title="Section (\section)" onClick={() => onInsert('\\section{}')}>
+      <button className="toolbar-btn" title="Section (\\section)" onClick={() => onInsert('\\section{}')}>
         &sect;
       </button>
       <span className="toolbar-sep" />

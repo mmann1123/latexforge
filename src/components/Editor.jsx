@@ -8,6 +8,7 @@ import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { yCollab } from 'y-codemirror.next';
 import { latexCompletionSource } from '../utils/latexCompletions.js';
+import { spellCheckExtension } from '../utils/spellCheck.js';
 
 // Custom LaTeX stream parser
 const latexStreamParser = {
@@ -95,6 +96,7 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
       search(),
       highlightSelectionMatches(),
       latexLanguage,
+      spellCheckExtension(latexStreamParser),
       autocompletion({ override: [latexCompletionSource] }),
       oneDark,
       yCollab(yText, awareness, { undoManager }),
@@ -153,6 +155,7 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
         search(),
         highlightSelectionMatches(),
         latexLanguage,
+        spellCheckExtension(latexStreamParser),
         autocompletion({ override: [latexCompletionSource] }),
         oneDark,
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...completionKeymap, indentWithTab]),

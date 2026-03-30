@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "mkdir -p public/dictionaries/en && cp node_modules/dictionary-en/index.aff public/dictionaries/en/ && cp node_modules/dictionary-en/index.dic public/dictionaries/en/"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.4",
@@ -22,8 +23,10 @@
     "@codemirror/view": "^6.36.5",
     "@lezer/highlight": "^1.2.1",
     "codemirror": "^6.0.1",
+    "dictionary-en": "^4.0.0",
     "firebase": "^11.1.0",
     "lib0": "^0.2.117",
+    "nspell": "^2.1.5",
     "pdfjs-dist": "^4.9.155",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
