@@ -162,6 +162,12 @@ async def compile_latex(req: CompileRequest, user=Depends(verify_token)):
         # Validate all filenames and mainFile before writing anything
         if not validate_filename(req.mainFile):
             raise HTTPException(status_code=400, detail=f"Invalid main file name: {req.mainFile}")
+        # Pre-validate derived output paths from mainFile
+        safe_stem = Path(req.mainFile).stem
+        for derived in [safe_stem + ".pdf", safe_stem + ".log"]:
+            derived_path = (job_dir / derived).resolve()
+            if not str(derived_path).startswith(str(job_dir.resolve())):
+                raise HTTPException(status_code=400, detail=f"Invalid main file name: {req.mainFile}")
         for f in req.files:
             if not validate_filename(f.name):
                 raise HTTPException(status_code=400, detail=f"Invalid file name: {f.name}")
@@ -201,12 +207,9 @@ async def compile_latex(req: CompileRequest, user=Depends(verify_token)):
             await run(["pdflatex", "-no-shell-escape", "-interaction=nonstopmode", "-output-directory=.", main])
             await run(["pdflatex", "-no-shell-escape", "-interaction=nonstopmode", "-output-directory=.", main])
 
-        stem = Path(main).stem
-        pdf_path = (job_dir / (stem + ".pdf")).resolve()
-        log_path = (job_dir / (stem + ".log")).resolve()
-        job_root = str(job_dir.resolve())
-        if not str(pdf_path).startswith(job_root) or not str(log_path).startswith(job_root):
-            raise HTTPException(status_code=400, detail="Invalid main file name")
+        # Output paths already validated above via safe_stem
+        pdf_path = job_dir / (safe_stem + ".pdf")
+        log_path = job_dir / (safe_stem + ".log")
         log = log_path.read_text() if log_path.exists() else ""
         errors = parse_latex_log(log) if log else []
 
