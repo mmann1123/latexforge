@@ -1,52 +1,30 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { loginWithEmail, loginWithGoogle } from '../firebase/auth.js';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { loginWithGoogle } from '../firebase/auth.js';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const invitation = searchParams.get('invitation');
 
-  function redirectAfterAuth() {
-    if (invitation) {
-      navigate(`/accept-invite/${invitation}`, { replace: true });
-    } else {
-      navigate('/');
-    }
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await loginWithEmail(email, password);
-      redirectAfterAuth();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleGoogle() {
     setError('');
     setLoading(true);
     try {
       await loginWithGoogle();
-      redirectAfterAuth();
+      if (invitation) {
+        navigate(`/accept-invite/${invitation}`, { replace: true });
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }
-
-  const registerLink = invitation ? `/register?invitation=${invitation}` : '/register';
 
   return (
     <div className="auth-page">
@@ -57,36 +35,6 @@ export default function Login() {
           <div className="auth-info">Sign in to accept your collaboration invitation.</div>
         )}
         {error && <div className="auth-error">{error}</div>}
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="you@example.com"
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Your password"
-            />
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-        <div className="auth-divider">
-          <span>or</span>
-        </div>
         <button
           onClick={handleGoogle}
           className="btn btn-google"
@@ -98,10 +46,10 @@ export default function Login() {
             <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
           </svg>
-          Sign in with Google
+          {loading ? 'Signing in...' : 'Sign in with Google'}
         </button>
-        <p className="auth-link">
-          Don't have an account? <Link to={registerLink}>Create one</Link>
+        <p className="auth-domain-note">
+          Available for .edu and .org Google accounts.
         </p>
       </div>
     </div>

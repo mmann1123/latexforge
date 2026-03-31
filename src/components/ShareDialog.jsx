@@ -42,6 +42,11 @@ export default function ShareDialog({ projectId, project, onClose }) {
       setError("You can't invite yourself.");
       return;
     }
+    const domain = trimmed.split('@')[1];
+    if (!domain || !(domain.endsWith('.edu') || domain.endsWith('.org'))) {
+      setError('Only .edu and .org email addresses can be invited.');
+      return;
+    }
 
     setSending(true);
     setError('');
@@ -88,7 +93,7 @@ export default function ShareDialog({ projectId, project, onClose }) {
         <form className="share-invite-form" onSubmit={handleInvite}>
           <input
             type="email"
-            placeholder="Email address"
+            placeholder="Email address (.edu or .org)"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required

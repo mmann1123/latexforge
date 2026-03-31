@@ -213,6 +213,12 @@ body {
 .auth-link a:hover {
   text-decoration: underline;
 }
+.auth-domain-note {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
 
 /* ===== Dashboard ===== */
 .dashboard-page {
@@ -1494,6 +1500,17 @@ body {
   font-size: 14px;
 }
 .invite-result-success ul {
+  margin: 4px 0 0 20px;
+}
+.invite-result-warning {
+  background: #fff3e0;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #e65100;
+}
+.invite-result-warning ul {
   margin: 4px 0 0 20px;
 }
 .invite-result-error {

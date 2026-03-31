@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
 import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ProjectEditor from './pages/ProjectEditor.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
@@ -68,11 +67,7 @@ export default function App() {
         />
         <Route
           path="/register"
-          element={
-            <PublicRoute>
-              <Register />
-            </PublicRoute>
-          }
+          element={<Navigate to="/login" replace />}
         />
         <Route
           path="/invite"

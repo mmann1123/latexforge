@@ -1,62 +1,38 @@
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
-  updateProfile,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './config.js';
-import { isEmailAllowed } from './sharing.js';
 
-// Hardcoded base allowlist — always permitted
-const ALLOWED_EMAILS = ['mmann1123@gmail.com'];
+// Admin email — always permitted regardless of domain
+const ADMIN_EMAILS = ['mmann1123@gmail.com'];
+
+// Allowed top-level domain suffixes
+const ALLOWED_DOMAIN_SUFFIXES = ['.edu', '.org'];
 
 /**
- * Check if an email is allowed to use the app.
- * Checks both the hardcoded list and the Firestore-based allowlist
- * (where invited collaborators get auto-added).
+ * Check if an email's domain is allowed.
+ * Permits .edu and .org domains, plus admin emails.
  */
-async function checkAllowedEmail(email) {
+function checkAllowedDomain(email) {
   const lower = email.toLowerCase();
-  if (ALLOWED_EMAILS.includes(lower)) return;
+  if (ADMIN_EMAILS.includes(lower)) return;
 
-  // Check Firestore allowlist (populated when collaborators are invited)
-  const allowed = await isEmailAllowed(lower);
-  if (allowed) return;
+  const domain = lower.split('@')[1];
+  if (domain && ALLOWED_DOMAIN_SUFFIXES.some((suffix) => domain.endsWith(suffix))) return;
 
-  throw new Error('Access denied. This app is restricted to authorized users only.');
-}
-
-export async function registerWithEmail(email, password, displayName) {
-  await checkAllowedEmail(email);
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const user = userCredential.user;
-
-  await updateProfile(user, { displayName });
-
-  await setDoc(doc(db, 'users', user.uid), {
-    uid: user.uid,
-    email: user.email,
-    displayName: displayName,
-    createdAt: serverTimestamp(),
-  });
-
-  return user;
-}
-
-export async function loginWithEmail(email, password) {
-  await checkAllowedEmail(email);
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  return userCredential.user;
+  throw new Error(
+    'Access is limited to .edu and .org Google accounts. Contact the admin if you need access.'
+  );
 }
 
 export async function loginWithGoogle() {
   const provider = new GoogleAuthProvider();
   const userCredential = await signInWithPopup(auth, provider);
   const user = userCredential.user;
-  await checkAllowedEmail(user.email);
+  checkAllowedDomain(user.email);
 
   await setDoc(
     doc(db, 'users', user.uid),

@@ -7,17 +7,14 @@ import {
   updateDoc,
   deleteDoc,
   deleteField,
-  arrayUnion,
   serverTimestamp,
   query,
   where,
-  setDoc,
 } from 'firebase/firestore';
 import { db } from './config.js';
 
 /**
- * Invite a collaborator by email. Creates an invitation doc and
- * auto-adds the email to the Firestore allowlist so they can register.
+ * Invite a collaborator by email. Creates an invitation doc and sends an email.
  */
 export async function inviteCollaborator(projectId, projectName, invitedEmail, role, invitedByUser) {
   const email = invitedEmail.toLowerCase();
@@ -59,7 +56,7 @@ export async function inviteCollaborator(projectId, projectName, invitedEmail, r
             </a>
           </div>
           <p style="color: #999; font-size: 13px;">
-            If you don't have an account yet, you'll be prompted to create one.
+            If you don't have an account yet, sign in with your .edu or .org Google account.
           </p>
           <hr style="border: none; border-top: 1px solid #eee; margin-top: 32px;" />
           <p style="color: #bbb; font-size: 12px;">
@@ -70,10 +67,45 @@ export async function inviteCollaborator(projectId, projectName, invitedEmail, r
     },
   });
 
-  // Auto-add email to Firestore allowlist
-  await addToAllowlist(email);
-
   return invRef.id;
+}
+
+/**
+ * Send a welcome email inviting someone to try LaTeX Forge (not tied to a project).
+ */
+export async function sendWelcomeInvite(email, invitedByUser) {
+  const cleaned = email.toLowerCase();
+  const inviterName = invitedByUser.displayName || invitedByUser.email;
+  await addDoc(collection(db, 'mail'), {
+    to: cleaned,
+    message: {
+      subject: `${inviterName} invited you to try LaTeX Forge`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #333; margin-bottom: 16px;">You're invited to LaTeX Forge!</h2>
+          <p style="color: #555; font-size: 15px; line-height: 1.5;">
+            <strong>${inviterName}</strong> thinks you'd enjoy <strong>LaTeX Forge</strong> —
+            a collaborative LaTeX editor with real-time PDF preview.
+          </p>
+          <p style="color: #999; font-size: 13px;">
+            Sign in with your .edu or .org Google account to get started.
+          </p>
+          <div style="margin: 28px 0;">
+            <a href="https://latexforge.web.app"
+               style="display: inline-block; padding: 12px 28px; background: #2979ff;
+                      color: #fff; text-decoration: none; border-radius: 6px;
+                      font-size: 15px; font-weight: 600;">
+              Get Started
+            </a>
+          </div>
+          <hr style="border: none; border-top: 1px solid #eee; margin-top: 32px;" />
+          <p style="color: #bbb; font-size: 12px;">
+            LaTeX Forge — Collaborative LaTeX editing
+          </p>
+        </div>
+      `,
+    },
+  });
 }
 
 /**
@@ -172,79 +204,4 @@ export async function getProjectInvitations(projectId) {
  */
 export async function cancelInvitation(invitationId) {
   await deleteDoc(doc(db, 'invitations', invitationId));
-}
-
-// ── Allowlist management ─────────────────────────────────────
-
-const ALLOWLIST_DOC = doc(db, 'config', 'allowedEmails');
-
-/**
- * Add an email to the Firestore-based allowlist.
- */
-async function addToAllowlist(email) {
-  try {
-    const snap = await getDoc(ALLOWLIST_DOC);
-    if (snap.exists()) {
-      // Use arrayUnion to avoid race conditions with concurrent invitations
-      await updateDoc(ALLOWLIST_DOC, {
-        emails: arrayUnion(email),
-      });
-    } else {
-      await setDoc(ALLOWLIST_DOC, { emails: [email] });
-    }
-  } catch (err) {
-    console.warn('Error updating allowlist:', err);
-  }
-}
-
-/**
- * Invite someone to LaTeX Forge by adding them to the allowlist and sending
- * a welcome email. This is a general "share the app" invite, not tied to a project.
- */
-export async function addToAllowlistPublic(email, invitedByUser) {
-  const cleaned = email.toLowerCase();
-  await addToAllowlist(cleaned);
-
-  const inviterName = invitedByUser.displayName || invitedByUser.email;
-  await addDoc(collection(db, 'mail'), {
-    to: cleaned,
-    message: {
-      subject: `${inviterName} invited you to try LaTeX Forge`,
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-          <h2 style="color: #333; margin-bottom: 16px;">You're invited to LaTeX Forge!</h2>
-          <p style="color: #555; font-size: 15px; line-height: 1.5;">
-            <strong>${inviterName}</strong> thinks you'd enjoy <strong>LaTeX Forge</strong> —
-            a collaborative LaTeX editor with real-time PDF preview.
-          </p>
-          <div style="margin: 28px 0;">
-            <a href="https://latexforge.web.app"
-               style="display: inline-block; padding: 12px 28px; background: #2979ff;
-                      color: #fff; text-decoration: none; border-radius: 6px;
-                      font-size: 15px; font-weight: 600;">
-              Get Started
-            </a>
-          </div>
-          <hr style="border: none; border-top: 1px solid #eee; margin-top: 32px;" />
-          <p style="color: #bbb; font-size: 12px;">
-            LaTeX Forge — Collaborative LaTeX editing
-          </p>
-        </div>
-      `,
-    },
-  });
-}
-
-/**
- * Check if an email is in the Firestore allowlist.
- */
-export async function isEmailAllowed(email) {
-  try {
-    const snap = await getDoc(ALLOWLIST_DOC);
-    if (!snap.exists()) return false;
-    const emails = snap.data().emails || [];
-    return emails.includes(email.toLowerCase());
-  } catch {
-    return false;
-  }
 }

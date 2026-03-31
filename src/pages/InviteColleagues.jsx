@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { addToAllowlistPublic } from '../firebase/sharing.js';
+import { sendWelcomeInvite } from '../firebase/sharing.js';
+
+const ALLOWED_DOMAIN_SUFFIXES = ['.edu', '.org'];
+
+function isAllowedDomain(email) {
+  const domain = email.split('@')[1];
+  return domain && ALLOWED_DOMAIN_SUFFIXES.some((suffix) => domain.endsWith(suffix));
+}
 
 /**
  * Parse a raw input string into email addresses.
@@ -42,8 +49,19 @@ export default function InviteColleagues() {
     // Filter out the current user
     const filtered = emails.filter((em) => em !== user.email.toLowerCase());
     if (filtered.length === 0) {
-      setResults({ sent: [], skipped: ['(all entries were your own email)'] });
+      setResults({ sent: [], rejected: [], failed: [] });
       return;
+    }
+
+    // Split into allowed and rejected domains
+    const allowed = [];
+    const rejected = [];
+    for (const em of filtered) {
+      if (isAllowedDomain(em)) {
+        allowed.push(em);
+      } else {
+        rejected.push(em);
+      }
     }
 
     setSending(true);
@@ -52,9 +70,9 @@ export default function InviteColleagues() {
     const sent = [];
     const failed = [];
 
-    for (const email of filtered) {
+    for (const email of allowed) {
       try {
-        await addToAllowlistPublic(email, user);
+        await sendWelcomeInvite(email, user);
         sent.push(email);
       } catch (err) {
         failed.push(email);
@@ -62,7 +80,7 @@ export default function InviteColleagues() {
       }
     }
 
-    setResults({ sent, failed });
+    setResults({ sent, rejected, failed });
     setSending(false);
     if (sent.length > 0) setInput('');
   }
@@ -82,14 +100,14 @@ export default function InviteColleagues() {
       <main className="invite-page-content">
         <h2>Invite Colleagues to LaTeX Forge</h2>
         <p className="invite-subtitle">
-          Share LaTeX Forge with your colleagues! Enter their email addresses below
-          and we'll add them to the allowlist so they can sign up and start collaborating.
+          Share LaTeX Forge with your colleagues! Only .edu and .org email addresses
+          can be invited. Recipients will get an email with a link to sign in with Google.
         </p>
 
         <form className="invite-form" onSubmit={handleInvite}>
           <textarea
             className="invite-textarea"
-            placeholder={"Paste email addresses here, one per line.\n\nAccepted formats:\n  jane@university.edu\n  John Smith <john@university.edu>\n  alice@lab.org, bob@lab.org"}
+            placeholder={"Paste .edu or .org email addresses here, one per line.\n\nAccepted formats:\n  jane@university.edu\n  John Smith <john@university.edu>\n  alice@lab.org, bob@lab.org"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             rows={8}
@@ -113,16 +131,21 @@ export default function InviteColleagues() {
                 </ul>
               </div>
             )}
+            {results.rejected?.length > 0 && (
+              <div className="invite-result-warning">
+                <strong>Not invited ({results.rejected.length}) — only .edu and .org addresses are allowed:</strong>
+                <ul>
+                  {results.rejected.map((em) => <li key={em}>{em}</li>)}
+                </ul>
+              </div>
+            )}
             {results.failed?.length > 0 && (
               <div className="invite-result-error">
-                <strong>Failed:</strong>
+                <strong>Failed to send:</strong>
                 <ul>
                   {results.failed.map((em) => <li key={em}>{em}</li>)}
                 </ul>
               </div>
-            )}
-            {results.skipped?.length > 0 && (
-              <p className="invite-result-skip">{results.skipped[0]}</p>
             )}
           </div>
         )}

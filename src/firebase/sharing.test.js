@@ -6,7 +6,6 @@ const mockGetDoc = vi.fn();
 const mockGetDocs = vi.fn();
 const mockUpdateDoc = vi.fn();
 const mockDeleteDoc = vi.fn();
-const mockSetDoc = vi.fn();
 
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn((...args) => args.join('/')),
@@ -17,11 +16,9 @@ vi.mock('firebase/firestore', () => ({
   updateDoc: (...args) => mockUpdateDoc(...args),
   deleteDoc: (...args) => mockDeleteDoc(...args),
   deleteField: vi.fn(() => 'DELETE_FIELD_SENTINEL'),
-  arrayUnion: vi.fn((val) => `ARRAY_UNION:${val}`),
   serverTimestamp: vi.fn(() => 'mock-ts'),
   query: vi.fn((...args) => args[0]),
   where: vi.fn(),
-  setDoc: (...args) => mockSetDoc(...args),
 }));
 
 vi.mock('./config.js', () => ({
@@ -38,7 +35,6 @@ import {
   getCollaborators,
   getProjectInvitations,
   cancelInvitation,
-  isEmailAllowed,
 } from './sharing.js';
 
 describe('sharing module', () => {
@@ -47,11 +43,8 @@ describe('sharing module', () => {
   });
 
   describe('inviteCollaborator', () => {
-    it('creates invitation, sends email, and updates allowlist', async () => {
+    it('creates invitation and sends email', async () => {
       mockAddDoc.mockResolvedValue({ id: 'inv-1' });
-      // Mock allowlist getDoc (addToAllowlist checks if doc exists)
-      mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ emails: [] }) });
-      mockUpdateDoc.mockResolvedValue();
 
       const user = { uid: 'owner-1', displayName: 'Owner', email: 'owner@test.com' };
       const id = await inviteCollaborator('proj-1', 'My Project', 'Friend@Test.com', 'editor', user);
@@ -75,8 +68,6 @@ describe('sharing module', () => {
 
     it('defaults role to editor when not specified', async () => {
       mockAddDoc.mockResolvedValue({ id: 'inv-2' });
-      mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ emails: [] }) });
-      mockUpdateDoc.mockResolvedValue();
 
       const user = { uid: 'u1', email: 'a@b.com' };
       await inviteCollaborator('proj-1', 'P', 'x@y.com', null, user);
@@ -87,8 +78,6 @@ describe('sharing module', () => {
 
     it('uses user email as inviterName when displayName is missing', async () => {
       mockAddDoc.mockResolvedValue({ id: 'inv-3' });
-      mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ emails: [] }) });
-      mockUpdateDoc.mockResolvedValue();
 
       const user = { uid: 'u1', email: 'fallback@test.com', displayName: '' };
       await inviteCollaborator('proj-1', 'P', 'x@y.com', 'viewer', user);
@@ -250,42 +239,4 @@ describe('sharing module', () => {
     });
   });
 
-  describe('isEmailAllowed', () => {
-    it('returns true when email is in the allowlist', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ emails: ['allowed@test.com', 'other@test.com'] }),
-      });
-
-      expect(await isEmailAllowed('allowed@test.com')).toBe(true);
-    });
-
-    it('returns false when email is not in the allowlist', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ emails: ['other@test.com'] }),
-      });
-
-      expect(await isEmailAllowed('nothere@test.com')).toBe(false);
-    });
-
-    it('returns false when allowlist doc does not exist', async () => {
-      mockGetDoc.mockResolvedValue({ exists: () => false });
-      expect(await isEmailAllowed('any@test.com')).toBe(false);
-    });
-
-    it('returns false on Firestore error', async () => {
-      mockGetDoc.mockRejectedValue(new Error('network error'));
-      expect(await isEmailAllowed('any@test.com')).toBe(false);
-    });
-
-    it('checks case-insensitively', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ emails: ['user@test.com'] }),
-      });
-
-      expect(await isEmailAllowed('USER@TEST.COM')).toBe(true);
-    });
-  });
 });

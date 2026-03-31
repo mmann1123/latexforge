@@ -15,7 +15,7 @@ export default function AcceptInvite() {
 
     if (!user) {
       // Not logged in — redirect to register with invitation param
-      navigate(`/register?invitation=${invitationId}`, { replace: true });
+      navigate(`/login?invitation=${invitationId}`, { replace: true });
       return;
     }
 
