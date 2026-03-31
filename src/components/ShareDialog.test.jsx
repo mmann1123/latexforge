@@ -48,7 +48,7 @@ describe('ShareDialog', () => {
 
   it('renders the invite form with email input, role select, and button', () => {
     render(<ShareDialog {...defaultProps} />);
-    expect(screen.getByPlaceholderText('Email address')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Email address (.edu or .org)')).toBeInTheDocument();
     expect(screen.getByText('Invite')).toBeInTheDocument();
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
@@ -85,7 +85,7 @@ describe('ShareDialog', () => {
 
   it('prevents self-invitation and shows error', async () => {
     render(<ShareDialog {...defaultProps} />);
-    const emailInput = screen.getByPlaceholderText('Email address');
+    const emailInput = screen.getByPlaceholderText('Email address (.edu or .org)');
     fireEvent.change(emailInput, { target: { value: 'owner@example.com' } });
     fireEvent.submit(emailInput.closest('form'));
 
@@ -97,15 +97,15 @@ describe('ShareDialog', () => {
 
   it('submits invitation for valid email', async () => {
     render(<ShareDialog {...defaultProps} />);
-    const emailInput = screen.getByPlaceholderText('Email address');
-    fireEvent.change(emailInput, { target: { value: 'new@example.com' } });
+    const emailInput = screen.getByPlaceholderText('Email address (.edu or .org)');
+    fireEvent.change(emailInput, { target: { value: 'new@university.edu' } });
     fireEvent.submit(emailInput.closest('form'));
 
     await waitFor(() => {
       expect(mockInviteCollaborator).toHaveBeenCalledWith(
         'proj-1',
         'Test Project',
-        'new@example.com',
+        'new@university.edu',
         'editor',
         expect.objectContaining({ uid: 'owner-uid' })
       );
