@@ -11,7 +11,7 @@ import {
   deleteFile,
   renameFile,
 } from '../firebase/firestore.js';
-import { uploadFile, getProjectFileAsBase64, getFileUrl } from '../firebase/storage.js';
+import { uploadFile, getProjectFileAsBase64, getFileUrl, saveCompiledPdf, loadCompiledPdf } from '../firebase/storage.js';
 import Editor from '../components/Editor.jsx';
 import Toolbar from '../components/Toolbar.jsx';
 import PdfViewer from '../components/PdfViewer.jsx';
@@ -53,6 +53,14 @@ export default function ProjectEditor() {
   const filesMenuRef = useRef(null);
   const editorLayoutRef = useRef(null);
   const dragTypeRef = useRef(null);
+
+  // Load cached compiled PDF on project open
+  useEffect(() => {
+    if (!projectId) return;
+    loadCompiledPdf(projectId).then((cached) => {
+      if (cached) setPdfData(cached);
+    });
+  }, [projectId]);
 
   // Persist pane layout to localStorage
   useEffect(() => { localStorage.setItem('latexforge-filetree-visible', fileTreeVisible); }, [fileTreeVisible]);
@@ -293,7 +301,6 @@ export default function ProjectEditor() {
     setCompiling(true);
     setCompileLog('');
     setCompileSuccess(null);
-    setPdfData(null);
 
     try {
       const allFiles = [];
@@ -331,6 +338,10 @@ export default function ProjectEditor() {
         setCompileSuccess(true);
         setCompileLog(result.log || '');
         setCompileErrors(result.errors || []);
+        // Cache compiled PDF to storage (fire-and-forget)
+        saveCompiledPdf(projectId, result.pdf).catch((err) =>
+          console.warn('Failed to cache compiled PDF:', err)
+        );
       } else {
         setCompileSuccess(false);
         setCompileLog(result.log || 'Compilation failed.');
@@ -468,7 +479,15 @@ export default function ProjectEditor() {
             onClick={handleCompile}
             disabled={compiling}
           >
-            {compiling ? 'Compiling...' : 'Compile'}
+            {compiling ? 'Compiling...' : pdfData ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Refresh
+              </>
+            ) : 'Compile'}
           </button>
         </div>
       </nav>
