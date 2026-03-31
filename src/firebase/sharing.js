@@ -198,6 +198,44 @@ async function addToAllowlist(email) {
 }
 
 /**
+ * Invite someone to LaTeX Forge by adding them to the allowlist and sending
+ * a welcome email. This is a general "share the app" invite, not tied to a project.
+ */
+export async function addToAllowlistPublic(email, invitedByUser) {
+  const cleaned = email.toLowerCase();
+  await addToAllowlist(cleaned);
+
+  const inviterName = invitedByUser.displayName || invitedByUser.email;
+  await addDoc(collection(db, 'mail'), {
+    to: cleaned,
+    message: {
+      subject: `${inviterName} invited you to try LaTeX Forge`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #333; margin-bottom: 16px;">You're invited to LaTeX Forge!</h2>
+          <p style="color: #555; font-size: 15px; line-height: 1.5;">
+            <strong>${inviterName}</strong> thinks you'd enjoy <strong>LaTeX Forge</strong> —
+            a collaborative LaTeX editor with real-time PDF preview.
+          </p>
+          <div style="margin: 28px 0;">
+            <a href="https://latexforge.web.app"
+               style="display: inline-block; padding: 12px 28px; background: #2979ff;
+                      color: #fff; text-decoration: none; border-radius: 6px;
+                      font-size: 15px; font-weight: 600;">
+              Get Started
+            </a>
+          </div>
+          <hr style="border: none; border-top: 1px solid #eee; margin-top: 32px;" />
+          <p style="color: #bbb; font-size: 12px;">
+            LaTeX Forge — Collaborative LaTeX editing
+          </p>
+        </div>
+      `,
+    },
+  });
+}
+
+/**
  * Check if an email is in the Firestore allowlist.
  */
 export async function isEmailAllowed(email) {

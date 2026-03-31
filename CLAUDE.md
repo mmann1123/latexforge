@@ -60,6 +60,8 @@ cd cloud-run && pytest test_main.py::TestCompileEndpoint::test_compile_simple_la
 
 CI runs both frontend and backend tests on push/PR to `main` via `.github/workflows/test.yml`.
 
+**Important:** Always run `npm run test` (frontend) and `cd cloud-run && pytest` (backend) after making changes to verify nothing is broken. Run the relevant test suite before considering a task complete.
+
 ## Deployment
 
 ```bash

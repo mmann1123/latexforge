@@ -241,6 +241,18 @@ export default function Dashboard() {
           </>
         )}
       </main>
+
+      <div className="share-banner">
+        <span className="share-banner-text">
+          Enjoying LaTeX Forge? Invite your colleagues to collaborate!
+        </span>
+        <button
+          className="btn btn-share-banner"
+          onClick={() => navigate('/invite')}
+        >
+          Share LaTeX Forge
+        </button>
+      </div>
     </div>
   );
 }

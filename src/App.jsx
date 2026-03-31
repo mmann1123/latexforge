@@ -6,6 +6,7 @@ import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ProjectEditor from './pages/ProjectEditor.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
+import InviteColleagues from './pages/InviteColleagues.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -71,6 +72,14 @@ export default function App() {
             <PublicRoute>
               <Register />
             </PublicRoute>
+          }
+        />
+        <Route
+          path="/invite"
+          element={
+            <ProtectedRoute>
+              <InviteColleagues />
+            </ProtectedRoute>
           }
         />
         <Route
