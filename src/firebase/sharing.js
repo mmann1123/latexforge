@@ -56,11 +56,12 @@ export async function inviteCollaborator(projectId, projectName, invitedEmail, r
             </a>
           </div>
           <p style="color: #999; font-size: 13px;">
+            LaTeX Forge is a free, open-source alternative to Overleaf.
             If you don't have an account yet, sign in with your .edu or .org Google account.
           </p>
           <hr style="border: none; border-top: 1px solid #eee; margin-top: 32px;" />
           <p style="color: #bbb; font-size: 12px;">
-            LaTeX Forge — Collaborative LaTeX editing
+            LaTeX Forge — Free collaborative LaTeX editing
           </p>
         </div>
       `,
@@ -79,13 +80,17 @@ export async function sendWelcomeInvite(email, invitedByUser) {
   await addDoc(collection(db, 'mail'), {
     to: cleaned,
     message: {
-      subject: `${inviterName} invited you to try LaTeX Forge`,
+      subject: `${inviterName} invited you to try LaTeX Forge — a free Overleaf alternative`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
           <h2 style="color: #333; margin-bottom: 16px;">You're invited to LaTeX Forge!</h2>
           <p style="color: #555; font-size: 15px; line-height: 1.5;">
             <strong>${inviterName}</strong> thinks you'd enjoy <strong>LaTeX Forge</strong> —
-            a collaborative LaTeX editor with real-time PDF preview.
+            a free, open-source alternative to Overleaf for writing and collaborating on LaTeX documents.
+          </p>
+          <p style="color: #555; font-size: 15px; line-height: 1.5;">
+            Edit LaTeX in your browser with real-time collaboration, instant PDF preview,
+            multi-file project support, and BibTeX integration — no subscription required.
           </p>
           <p style="color: #999; font-size: 13px;">
             Sign in with your .edu or .org Google account to get started.
@@ -95,12 +100,12 @@ export async function sendWelcomeInvite(email, invitedByUser) {
                style="display: inline-block; padding: 12px 28px; background: #2979ff;
                       color: #fff; text-decoration: none; border-radius: 6px;
                       font-size: 15px; font-weight: 600;">
-              Get Started
+              Get Started — It's Free
             </a>
           </div>
           <hr style="border: none; border-top: 1px solid #eee; margin-top: 32px;" />
           <p style="color: #bbb; font-size: 12px;">
-            LaTeX Forge — Collaborative LaTeX editing
+            LaTeX Forge — Free collaborative LaTeX editing
           </p>
         </div>
       `,
