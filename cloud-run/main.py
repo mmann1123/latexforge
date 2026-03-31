@@ -205,7 +205,8 @@ async def compile_latex(req: CompileRequest, user=Depends(verify_token)):
             stem = Path(main).stem
             await run(["bibtex", stem])
             await run(["pdflatex", "-no-shell-escape", "-interaction=nonstopmode", "-output-directory=.", main])
-            await run(["pdflatex", "-no-shell-escape", "-interaction=nonstopmode", "-output-directory=.", main])
+        # Always run a final pass to resolve cross-references (citations, \ref, TOC, etc.)
+        await run(["pdflatex", "-no-shell-escape", "-interaction=nonstopmode", "-output-directory=.", main])
 
         # Output paths already validated above via safe_stem
         pdf_path = job_dir / (safe_stem + ".pdf")

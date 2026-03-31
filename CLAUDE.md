@@ -72,6 +72,12 @@ npm run build && firebase deploy --only firestore:rules,firestore:indexes,storag
 cd cloud-run && ./deploy.sh [PROJECT_ID] [REGION]
 ```
 
+**Important:** After making changes, always prompt the user to deploy the affected services:
+- Frontend changes (`src/`): `npm run build && firebase deploy --only hosting`
+- Firestore/Storage rules changes: `firebase deploy --only firestore:rules,firestore:indexes,storage`
+- Backend changes (`cloud-run/`): `cd cloud-run && ./deploy.sh`
+- Both: run the relevant commands for each
+
 Cloud Run config: 2GB memory, 1 max instance, 4 concurrency, 120s timeout.
 
 ## Environment Variables
