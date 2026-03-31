@@ -53,6 +53,9 @@ export default function Toolbar({ onInsert, onUndo, onRedo }) {
       <button className="toolbar-btn toolbar-btn-italic" title="Italic (\\textit)" onClick={() => onInsert('\\textit{}')}>
         <em>I</em>
       </button>
+      <button className="toolbar-btn" title="Strikethrough (\\sout)" onClick={() => onInsert('\\sout{}')}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" fontSize="13" fontWeight="700" fontFamily="serif" textDecoration="line-through">S</text><line x1="1" y1="8.5" x2="15" y2="8.5" stroke="currentColor" strokeWidth="1.5"/></svg>
+      </button>
       <span className="toolbar-sep" />
       <button className="toolbar-btn" title="Section (\\section)" onClick={() => onInsert('\\section{}')}>
         &sect;

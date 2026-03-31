@@ -346,6 +346,24 @@ export default function ProjectEditor() {
   }
 
   function handleInsertSnippet(snippet) {
+    // Auto-add required packages to preamble
+    const packageMap = {
+      '\\sout{': 'ulem',  // loaded with [normalem] option below
+      '\\href{': 'hyperref',
+      '\\url{': 'hyperref',
+    };
+    if (yText) {
+      const content = yText.toString();
+      for (const [cmd, pkg] of Object.entries(packageMap)) {
+        if (snippet.includes(cmd) && !content.includes(`\\usepackage{${pkg}}`) && !content.includes(`\\usepackage[normalem]{${pkg}}`)) {
+          const docClassEnd = content.indexOf('\n', content.indexOf('\\documentclass'));
+          if (docClassEnd !== -1) {
+            const usepackageLine = pkg === 'ulem' ? `\\usepackage[normalem]{${pkg}}` : `\\usepackage{${pkg}}`;
+            yText.insert(docClassEnd + 1, usepackageLine + '\n');
+          }
+        }
+      }
+    }
     if (editorInsertRef.current) {
       editorInsertRef.current(snippet);
     }
