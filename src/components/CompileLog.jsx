@@ -75,8 +75,13 @@ function ErrorEntry({ entry, onGoToLine, sourceCode }) {
 
 export default function CompileLog({ log, success, errors, onGoToLine, sourceCode }) {
   const [showRawLog, setShowRawLog] = useState(false);
-  const [showErrors, setShowErrors] = useState(true);
+  const [showErrors, setShowErrors] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+
+  // Auto-show error list only when compilation fails; hide on success
+  useEffect(() => {
+    setShowErrors(success === false);
+  }, [success, log]);
 
   // Auto-dismiss success banner after 3 seconds (only if no warnings)
   useEffect(() => {
