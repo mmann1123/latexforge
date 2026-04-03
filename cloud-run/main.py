@@ -60,10 +60,17 @@ class CompileRequest(BaseModel):
     mainFile: str
     files: list[FileItem]
 
+ALLOWED_DOMAIN_SUFFIXES = [".edu", ".org"]
+
 def _is_email_allowed(email: str) -> bool:
-    """Check static env var list, then Firestore allowlist."""
+    """Check static env var list, then domain suffix, then Firestore allowlist."""
     if email in ALLOWED_EMAILS:
         return True
+    # Domain-based check (matches frontend logic)
+    domain = email.rsplit("@", 1)[-1] if "@" in email else ""
+    if any(domain.endswith(suffix) for suffix in ALLOWED_DOMAIN_SUFFIXES):
+        return True
+    # Firestore exceptions list
     try:
         snap = _firestore_client.document("config/allowedEmails").get()
         if snap.exists:

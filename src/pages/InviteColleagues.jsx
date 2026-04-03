@@ -2,13 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { sendWelcomeInvite } from '../firebase/sharing.js';
-
-const ALLOWED_DOMAIN_SUFFIXES = ['.edu', '.org'];
-
-function isAllowedDomain(email) {
-  const domain = email.split('@')[1];
-  return domain && ALLOWED_DOMAIN_SUFFIXES.some((suffix) => domain.endsWith(suffix));
-}
+import { isEmailPermitted } from '../firebase/auth.js';
 
 /**
  * Parse a raw input string into email addresses.
@@ -53,11 +47,11 @@ export default function InviteColleagues() {
       return;
     }
 
-    // Split into allowed and rejected domains
+    // Split into allowed and rejected (check domain + Firestore exceptions)
     const allowed = [];
     const rejected = [];
     for (const em of filtered) {
-      if (isAllowedDomain(em)) {
+      if (await isEmailPermitted(em)) {
         allowed.push(em);
       } else {
         rejected.push(em);

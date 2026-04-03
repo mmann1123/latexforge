@@ -49,7 +49,7 @@ export default function Login() {
           {loading ? 'Signing in...' : 'Sign in with Google'}
         </button>
         <p className="auth-domain-note">
-          Available for .edu and .org Google accounts.
+          Available for .edu and .org Google accounts. Other accounts may be granted access by an administrator.
         </p>
       </div>
     </div>
