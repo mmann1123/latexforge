@@ -58,8 +58,11 @@ export default function Dashboard() {
     if (!window.confirm(`Move "${projectName}" to trash?`)) return;
     try {
       await deleteProject(projectId);
-      const moved = projects.find((p) => p.id === projectId);
-      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      let moved = null;
+      setProjects((prev) => {
+        moved = prev.find((p) => p.id === projectId);
+        return prev.filter((p) => p.id !== projectId);
+      });
       if (moved) setDeletedProjects((prev) => [{ ...moved, deletedAt: new Date() }, ...prev]);
     } catch (err) {
       console.error('Error deleting project:', err);
