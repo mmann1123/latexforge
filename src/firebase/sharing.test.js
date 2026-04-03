@@ -35,6 +35,7 @@ import {
   getCollaborators,
   getProjectInvitations,
   cancelInvitation,
+  baseDomainEmail,
 } from './sharing.js';
 
 describe('sharing module', () => {
@@ -171,6 +172,21 @@ describe('sharing module', () => {
         acceptInvitation('inv-1', 'u1', 'wrong@test.com')
       ).rejects.toThrow('not for your account');
     });
+
+    it('accepts when emails match via base domain (subdomain variant)', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({
+          invitedEmail: 'user@gwmail.gwu.edu',
+          role: 'editor',
+          projectId: 'proj-1',
+        }),
+      });
+      mockUpdateDoc.mockResolvedValue();
+
+      await acceptInvitation('inv-1', 'user-uid', 'user@gwu.edu');
+      expect(mockUpdateDoc).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('declineInvitation', () => {
@@ -236,6 +252,28 @@ describe('sharing module', () => {
       mockDeleteDoc.mockResolvedValue();
       await cancelInvitation('inv-1');
       expect(mockDeleteDoc).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('baseDomainEmail', () => {
+    it('strips subdomain from 3-part domain', () => {
+      expect(baseDomainEmail('user@gwmail.gwu.edu')).toBe('user@gwu.edu');
+    });
+
+    it('strips subdomain from email.gwu.edu', () => {
+      expect(baseDomainEmail('user@email.gwu.edu')).toBe('user@gwu.edu');
+    });
+
+    it('returns as-is for 2-part domain', () => {
+      expect(baseDomainEmail('user@gwu.edu')).toBe('user@gwu.edu');
+    });
+
+    it('handles deeply nested subdomains', () => {
+      expect(baseDomainEmail('user@cs.dept.harvard.edu')).toBe('user@harvard.edu');
+    });
+
+    it('lowercases the result', () => {
+      expect(baseDomainEmail('User@GWmail.GWU.EDU')).toBe('user@gwu.edu');
     });
   });
 

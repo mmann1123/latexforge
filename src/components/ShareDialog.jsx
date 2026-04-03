@@ -7,6 +7,7 @@ import {
   cancelInvitation,
 } from '../firebase/sharing.js';
 import { useAuth } from '../hooks/useAuth.js';
+import { isEmailPermitted } from '../firebase/auth.js';
 
 export default function ShareDialog({ projectId, project, onClose }) {
   const { user } = useAuth();
@@ -42,9 +43,9 @@ export default function ShareDialog({ projectId, project, onClose }) {
       setError("You can't invite yourself.");
       return;
     }
-    const domain = trimmed.split('@')[1];
-    if (!domain || !(domain.endsWith('.edu') || domain.endsWith('.org'))) {
-      setError('Only .edu and .org email addresses can be invited.');
+    const permitted = await isEmailPermitted(trimmed);
+    if (!permitted) {
+      setError('Only .edu and .org email addresses can be invited (unless added to the exceptions list by an admin).');
       return;
     }
 

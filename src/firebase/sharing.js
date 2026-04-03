@@ -14,6 +14,29 @@ import {
 import { db } from './config.js';
 
 /**
+ * Extract the base-domain form of an email: strip subdomains down to the
+ * last two parts.  e.g. foo@gwmail.gwu.edu → foo@gwu.edu,
+ * foo@email.harvard.edu → foo@harvard.edu.  If the domain already has
+ * only two parts (foo@gwu.edu) it is returned as-is.
+ */
+export function baseDomainEmail(email) {
+  const lower = email.toLowerCase();
+  const [user, domain] = lower.split('@');
+  if (!domain) return lower;
+  const parts = domain.split('.');
+  if (parts.length <= 2) return lower;
+  return `${user}@${parts.slice(-2).join('.')}`;
+}
+
+/**
+ * Check whether two emails refer to the same person by comparing their
+ * username and base domain.
+ */
+function emailsMatch(a, b) {
+  return baseDomainEmail(a) === baseDomainEmail(b);
+}
+
+/**
  * Invite a collaborator by email. Creates an invitation doc and sends an email.
  */
 export async function inviteCollaborator(projectId, projectName, invitedEmail, role, invitedByUser) {
@@ -127,13 +150,35 @@ export async function getInvitation(invitationId) {
  */
 export async function getPendingInvitations(email) {
   if (!email) return [];
+  const lower = email.toLowerCase();
+  const base = baseDomainEmail(lower);
+
+  // Query for the exact email
   const q = query(
     collection(db, 'invitations'),
-    where('invitedEmail', '==', email.toLowerCase()),
+    where('invitedEmail', '==', lower),
     where('status', '==', 'pending')
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  // If the base domain differs, also query for that variant
+  if (base !== lower) {
+    const q2 = query(
+      collection(db, 'invitations'),
+      where('invitedEmail', '==', base),
+      where('status', '==', 'pending')
+    );
+    const snapshot2 = await getDocs(q2);
+    const extra = snapshot2.docs.map((d) => ({ id: d.id, ...d.data() }));
+    // Deduplicate by id
+    const seen = new Set(results.map((r) => r.id));
+    for (const inv of extra) {
+      if (!seen.has(inv.id)) results.push(inv);
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -146,8 +191,8 @@ export async function acceptInvitation(invitationId, userId, userEmail) {
 
   const inv = invDoc.data();
 
-  // Verify the caller is the intended invitee
-  if (inv.invitedEmail !== userEmail.toLowerCase()) {
+  // Verify the caller is the intended invitee (flexible base-domain match)
+  if (!emailsMatch(inv.invitedEmail, userEmail)) {
     throw new Error('This invitation is not for your account.');
   }
 
