@@ -42,6 +42,18 @@ function getFolders(files) {
   return Array.from(folders).sort();
 }
 
+/** Resolve the full folder path for a TreeFolder given its name and depth context. */
+function getFullFolderPath(name, node, files) {
+  // We derive the full path from the first file in this folder
+  for (const f of files) {
+    const idx = f.name.lastIndexOf(name + '/');
+    if (idx !== -1) {
+      return f.name.substring(0, idx + name.length);
+    }
+  }
+  return name;
+}
+
 function ContextMenu({ x, y, file, onClose, onRename, onDownload, onDelete, onMove, folders }) {
   const menuRef = useRef(null);
 
@@ -53,7 +65,6 @@ function ContextMenu({ x, y, file, onClose, onRename, onDownload, onDelete, onMo
     return () => document.removeEventListener('mousedown', handleClick);
   }, [onClose]);
 
-  // Adjust position if menu would go off-screen
   const style = { position: 'fixed', left: x, top: y, zIndex: 1000 };
 
   return (
@@ -77,6 +88,45 @@ function ContextMenu({ x, y, file, onClose, onRename, onDownload, onDelete, onMo
             })}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+function FolderContextMenu({ x, y, folderPath, onClose, onRenameFolder, onDeleteFolder, onAddFile, onUploadToFolder }) {
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [onClose]);
+
+  const style = { position: 'fixed', left: x, top: y, zIndex: 1000 };
+
+  return (
+    <div className="tree-context-menu" style={style} ref={menuRef}>
+      {onRenameFolder && (
+        <button onClick={() => { onRenameFolder(folderPath); onClose(); }}>Rename</button>
+      )}
+      {onDeleteFolder && (
+        <button onClick={() => { onDeleteFolder(folderPath); onClose(); }}>Delete</button>
+      )}
+      <div className="tree-context-separator" />
+      {onAddFile && (
+        <button onClick={() => { onAddFile(folderPath + '/'); onClose(); }}>New file</button>
+      )}
+      {onAddFile && (
+        <button onClick={() => {
+          const name = window.prompt('Folder name:');
+          if (name?.trim()) onAddFile(folderPath + '/' + name.trim() + '/');
+          onClose();
+        }}>New folder</button>
+      )}
+      {onUploadToFolder && (
+        <button onClick={() => { onUploadToFolder(folderPath); onClose(); }}>Upload</button>
       )}
     </div>
   );
@@ -106,7 +156,7 @@ function FileItem({ file, depth, selectedFileId, onSelectFile, onContextMenu }) 
   );
 }
 
-function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onAddFile, onContextMenu }) {
+function TreeFolder({ name, fullPath, node, depth, selectedFileId, onSelectFile, onAddFile, onContextMenu, onFolderContextMenu }) {
   const [expanded, setExpanded] = useState(true);
   const folderNames = Object.keys(node.children).sort();
 
@@ -116,16 +166,19 @@ function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onAddFile
         className="tree-folder-label"
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         onClick={() => setExpanded(!expanded)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onFolderContextMenu(e, fullPath);
+        }}
       >
         <span className="tree-icon">{expanded ? '\u25BE' : '\u25B8'}</span>
         <span className="tree-folder-name">{name}</span>
-        {onAddFile && (
-          <button
-            className="tree-action-btn"
-            onClick={(e) => { e.stopPropagation(); onAddFile(name ? name + '/' : ''); }}
-            title="New file in folder"
-          >+</button>
-        )}
+        <button
+          className="tree-kebab-btn"
+          onClick={(e) => { e.stopPropagation(); onFolderContextMenu(e, fullPath); }}
+          title="Folder actions"
+        >&#x22EE;</button>
       </div>
       {expanded && (
         <div className="tree-folder-children">
@@ -133,12 +186,14 @@ function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onAddFile
             <TreeFolder
               key={childName}
               name={childName}
+              fullPath={fullPath ? fullPath + '/' + childName : childName}
               node={node.children[childName]}
               depth={depth + 1}
               selectedFileId={selectedFileId}
               onSelectFile={onSelectFile}
               onAddFile={onAddFile}
               onContextMenu={onContextMenu}
+              onFolderContextMenu={onFolderContextMenu}
             />
           ))}
           {sortFiles(node.files).map((f) => (
@@ -157,14 +212,38 @@ function TreeFolder({ name, node, depth, selectedFileId, onSelectFile, onAddFile
   );
 }
 
-export default function FileTree({ files, selectedFileId, onSelectFile, onDeleteFile, onAddFile, onUploadFile, onRenameFile, onDownloadFile, onMoveFile }) {
+export default function FileTree({
+  files, selectedFileId, onSelectFile, onDeleteFile, onAddFile, onUploadFile,
+  onRenameFile, onDownloadFile, onMoveFile,
+  onRenameFolder, onDeleteFolder, onUploadToFolder,
+  onImportZip, onDownloadZip,
+}) {
   const tree = buildTree(files);
   const folders = getFolders(files);
   const [contextMenu, setContextMenu] = useState(null);
+  const [folderMenu, setFolderMenu] = useState(null);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef(null);
 
   function handleContextMenu(e, file) {
+    setFolderMenu(null);
     setContextMenu({ x: e.clientX, y: e.clientY, file });
   }
+
+  function handleFolderContextMenu(e, folderPath) {
+    setContextMenu(null);
+    setFolderMenu({ x: e.clientX, y: e.clientY, folderPath });
+  }
+
+  // Close header menu on outside click
+  useEffect(() => {
+    if (!headerMenuOpen) return;
+    function handleClick(e) {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target)) setHeaderMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [headerMenuOpen]);
 
   return (
     <div className="file-tree">
@@ -189,6 +268,30 @@ export default function FileTree({ files, selectedFileId, onSelectFile, onDelete
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.4 2L8 1.4L8.6 2L11.15 4.55L10.45 5.25L8.5 3.3V10H7.5V3.3L5.55 5.25L4.85 4.55L7.4 2ZM3 12V8H2V12C2 12.55 2.45 13 3 13H13C13.55 13 14 12.55 14 12V8H13V12H3Z"/></svg>
             </button>
           )}
+          {/* Kebab menu for zip import/export */}
+          {(onImportZip || onDownloadZip) && (
+            <div className="tree-header-kebab" ref={headerMenuRef}>
+              <button
+                className="tree-icon-btn"
+                onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
+                title="More actions"
+              >&#x22EE;</button>
+              {headerMenuOpen && (
+                <div className="tree-header-dropdown">
+                  {onImportZip && (
+                    <button onClick={() => { onImportZip(); setHeaderMenuOpen(false); }}>
+                      Import Zip
+                    </button>
+                  )}
+                  {onDownloadZip && (
+                    <button onClick={() => { onDownloadZip(); setHeaderMenuOpen(false); }}>
+                      Download Zip
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <div className="file-tree-content">
@@ -196,12 +299,14 @@ export default function FileTree({ files, selectedFileId, onSelectFile, onDelete
           <TreeFolder
             key={name}
             name={name}
+            fullPath={name}
             node={tree.children[name]}
             depth={0}
             selectedFileId={selectedFileId}
             onSelectFile={onSelectFile}
             onAddFile={onAddFile}
             onContextMenu={handleContextMenu}
+            onFolderContextMenu={handleFolderContextMenu}
           />
         ))}
         {sortFiles(tree.files).map((f) => (
@@ -230,6 +335,19 @@ export default function FileTree({ files, selectedFileId, onSelectFile, onDelete
           onDownload={onDownloadFile}
           onDelete={onDeleteFile}
           onMove={onMoveFile}
+        />
+      )}
+
+      {folderMenu && (
+        <FolderContextMenu
+          x={folderMenu.x}
+          y={folderMenu.y}
+          folderPath={folderMenu.folderPath}
+          onClose={() => setFolderMenu(null)}
+          onRenameFolder={onRenameFolder}
+          onDeleteFolder={onDeleteFolder}
+          onAddFile={onAddFile}
+          onUploadToFolder={onUploadToFolder}
         />
       )}
     </div>

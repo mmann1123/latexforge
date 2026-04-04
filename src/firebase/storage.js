@@ -6,8 +6,8 @@ import {
 } from 'firebase/storage';
 import { storage } from './config.js';
 
-export async function uploadFile(projectId, file) {
-  const storagePath = `projects/${projectId}/${file.name}`;
+export async function uploadFile(projectId, file, folderPrefix = '') {
+  const storagePath = `projects/${projectId}/${folderPrefix}${file.name}`;
   const storageRef = ref(storage, storagePath);
   const snapshot = await uploadBytes(storageRef, file);
   const downloadURL = await getDownloadURL(snapshot.ref);

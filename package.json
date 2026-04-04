@@ -25,6 +25,7 @@
     "codemirror": "^6.0.1",
     "dictionary-en": "^4.0.0",
     "firebase": "^11.1.0",
+    "jszip": "^3.10.1",
     "lib0": "^0.2.117",
     "nspell": "^2.1.5",
     "pdfjs-dist": "^4.9.155",
