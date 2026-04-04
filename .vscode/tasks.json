@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Deploy Frontend (Hosting)",
+      "type": "shell",
+      "command": "npm run build && firebase deploy --only hosting",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy Firestore/Storage Rules",
+      "type": "shell",
+      "command": "firebase deploy --only firestore:rules,firestore:indexes,storage",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy Backend (Cloud Run)",
+      "type": "shell",
+      "command": "./deploy.sh",
+      "options": { "cwd": "${workspaceFolder}/cloud-run" },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy All",
+      "dependsOn": ["Deploy Frontend (Hosting)", "Deploy Firestore/Storage Rules", "Deploy Backend (Cloud Run)"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Frontend Tests",
+      "type": "shell",
+      "command": "npx vitest run src/firebase/auth.test.js src/firebase/sharing.test.js --environment node",
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    }
+  ]
+}

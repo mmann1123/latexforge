@@ -26,6 +26,8 @@ function buildTree(files) {
       }
       node = node.children[parts[i]];
     }
+    // Hide .gitkeep placeholder files
+    if (parts[parts.length - 1] === '.gitkeep') continue;
     node.files.push({ ...file, displayName: parts[parts.length - 1] });
   }
   return root;
@@ -137,7 +139,7 @@ function FileItem({ file, depth, selectedFileId, onSelectFile, onContextMenu }) 
   return (
     <div
       className={`tree-file ${isActive ? 'active' : ''}`}
-      style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      style={{ paddingLeft: `${depth * 16 + 8}px` }}
       onClick={() => onSelectFile(file.id)}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, file); }}
     >
@@ -164,7 +166,7 @@ function TreeFolder({ name, fullPath, node, depth, selectedFileId, onSelectFile,
     <div className="tree-folder">
       <div
         className="tree-folder-label"
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={() => setExpanded(!expanded)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -313,7 +315,7 @@ export default function FileTree({
           <FileItem
             key={f.id}
             file={f}
-            depth={1}
+            depth={0}
             selectedFileId={selectedFileId}
             onSelectFile={onSelectFile}
             onContextMenu={handleContextMenu}

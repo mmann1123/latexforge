@@ -186,14 +186,30 @@ export default function ProjectEditor() {
   }
 
   async function handleAddFile(folderPrefix = '') {
-    // New folder request from the folder button — create a placeholder .tex file inside it
-    if (folderPrefix && folderPrefix.endsWith('/')) {
-      try {
-        await createFile(projectId, `${folderPrefix}main.tex`, 'tex', '');
-      } catch (err) {
-        console.error('Error creating file:', err);
+    // New folder request — create a hidden placeholder so the folder exists
+    if (folderPrefix && folderPrefix.endsWith('/') && !folderPrefix.slice(0, -1).includes('/')) {
+      // Top-level folder creation: only create placeholder if no files exist in this folder yet
+      const folderExists = files.some((f) => f.name.startsWith(folderPrefix));
+      if (!folderExists) {
+        try {
+          await createFile(projectId, `${folderPrefix}.gitkeep`, 'tex', '');
+        } catch (err) {
+          console.error('Error creating folder:', err);
+        }
+        return;
       }
-      return;
+    }
+    // Subfolder creation via folder context menu
+    if (folderPrefix && folderPrefix.endsWith('/')) {
+      const folderExists = files.some((f) => f.name.startsWith(folderPrefix));
+      if (!folderExists) {
+        try {
+          await createFile(projectId, `${folderPrefix}.gitkeep`, 'tex', '');
+        } catch (err) {
+          console.error('Error creating folder:', err);
+        }
+        return;
+      }
     }
     const hint = folderPrefix ? `File name in ${folderPrefix}:` : 'File name (e.g., chapter1.tex, images/fig.png):';
     const name = window.prompt(hint);
