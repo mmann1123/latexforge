@@ -130,7 +130,8 @@ export default function ProjectEditor() {
     if (files.length === 0) return;
     const currentValid = selectedFileId && files.some((f) => f.id === selectedFileId);
     if (!currentValid) {
-      const mainTex = files.find((f) => f.name === 'main.tex');
+      const mainTex = files.find((f) => f.name === 'main.tex')
+        || files.find((f) => f.name.endsWith('.tex') && f.type !== 'binary');
       setSelectedFileId((mainTex || files[0]).id);
     }
   }, [files]);
