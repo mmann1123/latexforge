@@ -12,6 +12,7 @@ import {
   renameFile,
 } from '../firebase/firestore.js';
 import { uploadFile, getProjectFileAsBase64, getFileUrl, saveCompiledPdf, loadCompiledPdf } from '../firebase/storage.js';
+import JSZip from 'jszip';
 import Editor from '../components/Editor.jsx';
 import Toolbar from '../components/Toolbar.jsx';
 import PdfViewer from '../components/PdfViewer.jsx';
@@ -224,6 +225,156 @@ export default function ProjectEditor() {
       console.error('Error uploading file:', err);
     }
     e.target.value = '';
+  }
+
+  // ── Folder operations ──────────────────────────────────────
+
+  const folderUploadRef = useRef(null);
+  const folderUploadPathRef = useRef('');
+  const zipInputRef = useRef(null);
+
+  function handleUploadToFolder(folderPath) {
+    folderUploadPathRef.current = folderPath ? folderPath + '/' : '';
+    folderUploadRef.current?.click();
+  }
+
+  async function handleFolderUploadChange(e) {
+    const uploadedFiles = Array.from(e.target.files);
+    if (!uploadedFiles.length) return;
+    const prefix = folderUploadPathRef.current;
+    const textExtensions = ['.tex', '.bib', '.cls', '.sty', '.bst', '.tikz', '.dtx', '.ins', '.def', '.cfg', '.fd', '.bbx', '.cbx', '.lbx'];
+    try {
+      for (const file of uploadedFiles) {
+        const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+        const fullName = prefix + file.name;
+        if (textExtensions.includes(ext)) {
+          const content = await file.text();
+          await createFile(projectId, fullName, 'tex', content);
+        } else {
+          await uploadFile(projectId, file, prefix);
+          await createFile(projectId, fullName, 'binary', '');
+        }
+      }
+    } catch (err) {
+      console.error('Error uploading to folder:', err);
+    }
+    e.target.value = '';
+  }
+
+  async function handleRenameFolder(folderPath) {
+    const oldName = folderPath.includes('/') ? folderPath.split('/').pop() : folderPath;
+    const newName = window.prompt('New folder name:', oldName);
+    if (!newName?.trim() || newName.trim() === oldName) return;
+    const parentPath = folderPath.includes('/')
+      ? folderPath.substring(0, folderPath.lastIndexOf('/') + 1)
+      : '';
+    const folderFiles = files.filter((f) => f.name.startsWith(folderPath + '/'));
+    try {
+      for (const f of folderFiles) {
+        const newFileName = parentPath + newName.trim() + f.name.substring(folderPath.length);
+        await renameFile(projectId, f.id, newFileName);
+      }
+    } catch (err) {
+      console.error('Error renaming folder:', err);
+    }
+  }
+
+  async function handleDeleteFolder(folderPath) {
+    const folderFiles = files.filter((f) => f.name.startsWith(folderPath + '/'));
+    if (!window.confirm(`Delete folder "${folderPath}" and its ${folderFiles.length} file(s)?`)) return;
+    try {
+      for (const f of folderFiles) {
+        await deleteFile(projectId, f.id);
+      }
+      if (selectedFileId && folderFiles.some((f) => f.id === selectedFileId)) {
+        setSelectedFileId(null);
+      }
+    } catch (err) {
+      console.error('Error deleting folder:', err);
+    }
+  }
+
+  // ── Zip import/export ─────────────────────────────────────
+
+  async function handleImportZip() {
+    zipInputRef.current?.click();
+  }
+
+  async function handleZipFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const textExtensions = ['.tex', '.bib', '.cls', '.sty', '.bst', '.tikz', '.dtx', '.ins', '.def', '.cfg', '.fd', '.bbx', '.cbx', '.lbx', '.txt', '.md', '.csv'];
+    const skipPatterns = ['__MACOSX/', '.DS_Store', '.git/', '*.aux', '*.log', '*.synctex.gz', '*.out', '*.fls', '*.fdb_latexmk', '*.toc', '*.lof', '*.lot', '*.bbl', '*.blg'];
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const entries = [];
+      zip.forEach((path, entry) => {
+        if (!entry.dir) entries.push({ path, entry });
+      });
+
+      for (const { path, entry } of entries) {
+        // Skip junk files
+        if (skipPatterns.some((pat) => {
+          if (pat.startsWith('*')) return path.endsWith(pat.substring(1));
+          return path.includes(pat);
+        })) continue;
+
+        // Strip leading folder if all files share one (common in Overleaf exports)
+        let cleanPath = path;
+        const topFolders = new Set(entries.map((e) => e.path.split('/')[0]));
+        if (topFolders.size === 1 && entries.every((e) => e.path.includes('/'))) {
+          cleanPath = path.substring(path.indexOf('/') + 1);
+        }
+        if (!cleanPath) continue;
+
+        const ext = cleanPath.substring(cleanPath.lastIndexOf('.')).toLowerCase();
+        if (textExtensions.includes(ext)) {
+          const content = await entry.async('string');
+          await createFile(projectId, cleanPath, 'tex', content);
+        } else {
+          const blob = await entry.async('blob');
+          const blobFile = new File([blob], cleanPath.split('/').pop());
+          const folderPrefix = cleanPath.includes('/') ? cleanPath.substring(0, cleanPath.lastIndexOf('/') + 1) : '';
+          await uploadFile(projectId, blobFile, folderPrefix);
+          await createFile(projectId, cleanPath, 'binary', '');
+        }
+      }
+    } catch (err) {
+      console.error('Error importing zip:', err);
+      alert('Failed to import zip file: ' + err.message);
+    }
+    e.target.value = '';
+  }
+
+  async function handleDownloadZip() {
+    try {
+      const zip = new JSZip();
+      for (const f of files) {
+        if (f.type === 'binary') {
+          try {
+            const b64 = await getProjectFileAsBase64(projectId, f.name);
+            const binary = atob(b64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            zip.file(f.name, bytes);
+          } catch (err) {
+            console.warn(`Skipping ${f.name}:`, err);
+          }
+        } else {
+          const full = await getFile(projectId, f.id);
+          zip.file(f.name, full?.content || '');
+        }
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project?.name || 'project'}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading zip:', err);
+    }
   }
 
   async function handleDeleteFile(fileId, fileName) {
@@ -465,6 +616,21 @@ export default function ProjectEditor() {
             onChange={handleUploadFile}
             accept=".tex,.bib,.cls,.sty,.bst,.png,.jpg,.jpeg,.gif,.svg,.pdf,.eps,.tikz,.dtx,.ins,.def,.cfg,.fd,.bbx,.cbx,.lbx"
           />
+          <input
+            ref={folderUploadRef}
+            type="file"
+            multiple
+            style={{ display: 'none' }}
+            onChange={handleFolderUploadChange}
+            accept=".tex,.bib,.cls,.sty,.bst,.png,.jpg,.jpeg,.gif,.svg,.pdf,.eps,.tikz,.dtx,.ins,.def,.cfg,.fd,.bbx,.cbx,.lbx"
+          />
+          <input
+            ref={zipInputRef}
+            type="file"
+            style={{ display: 'none' }}
+            onChange={handleZipFileChange}
+            accept=".zip"
+          />
           {isOwner && (
             <button
               className="nav-btn"
@@ -507,6 +673,11 @@ export default function ProjectEditor() {
                 onRenameFile={canEdit ? handleRenameFile : undefined}
                 onDownloadFile={handleDownloadFile}
                 onMoveFile={canEdit ? handleMoveFile : undefined}
+                onRenameFolder={canEdit ? handleRenameFolder : undefined}
+                onDeleteFolder={canEdit ? handleDeleteFolder : undefined}
+                onUploadToFolder={canEdit ? handleUploadToFolder : undefined}
+                onImportZip={canEdit ? handleImportZip : undefined}
+                onDownloadZip={handleDownloadZip}
               />
             </div>
             <div
