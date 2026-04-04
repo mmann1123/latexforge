@@ -177,6 +177,15 @@ export async function updateFileContent(projectId, fileId, content) {
   });
 }
 
+/**
+ * Get the updatedAt timestamp for a file (lightweight read for staleness checks).
+ */
+export async function getFileUpdatedAt(projectId, fileId) {
+  const snap = await getDoc(doc(db, 'projects', projectId, 'files', fileId));
+  if (!snap.exists()) return null;
+  return snap.data().updatedAt || null;
+}
+
 export async function renameFile(projectId, fileId, newName) {
   await updateDoc(
     doc(db, 'projects', projectId, 'files', fileId),
