@@ -17,6 +17,7 @@ import Toolbar from '../components/Toolbar.jsx';
 import PdfViewer from '../components/PdfViewer.jsx';
 import CompileLog from '../components/CompileLog.jsx';
 import FileTree from '../components/FileTree.jsx';
+import DocumentOutline from '../components/DocumentOutline.jsx';
 import ShareDialog from '../components/ShareDialog.jsx';
 import CollaboratorAvatars from '../components/CollaboratorAvatars.jsx';
 import FilePreview from '../components/FilePreview.jsx';
@@ -488,6 +489,10 @@ export default function ProjectEditor() {
                 onRenameFile={canEdit ? handleRenameFile : undefined}
                 onDownloadFile={handleDownloadFile}
                 onMoveFile={canEdit ? handleMoveFile : undefined}
+              />
+              <DocumentOutline
+                content={yText?.toString() || ''}
+                onJumpToLine={(line) => editorGoToLineRef.current?.(line)}
               />
             </div>
             <div
