@@ -3,9 +3,10 @@ import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness.js';
 import { FirestoreYjsProvider } from './FirestoreYjsProvider.js';
 import { FirestorePresenceProvider } from './FirestorePresenceProvider.js';
-import { getFile, updateFileContent } from '../firebase/firestore.js';
+import { getFile, updateFileContent, getFileUpdatedAt } from '../firebase/firestore.js';
 
 const SNAPSHOT_INTERVAL = 30_000; // Sync yText → Firestore content every 30s
+const RESYNC_DELAY = 2000; // Wait 2s after tab becomes visible before flushing
 
 /**
  * React hook that manages collaborative editing for a single file.
@@ -41,6 +42,9 @@ export function useCollaboration(projectId, fileId, user, canEdit) {
       const text = yDoc.getText('content');
       const aware = new Awareness(yDoc);
 
+      // Track our last successful write time for staleness checks
+      let lastWriteTime = null;
+
       // Create providers
       const yjsProvider = new FirestoreYjsProvider(projectId, fileId, yDoc);
       yjsProvider.onStatusChange = (s) => {
@@ -74,15 +78,49 @@ export function useCollaboration(projectId, fileId, user, canEdit) {
       // Create undo manager
       const undo = new Y.UndoManager(text);
 
-      // Periodic snapshot: write yText content back to files/{fileId}.content
-      const snapshotTimer = setInterval(async () => {
+      /**
+       * Guarded flush: only write to files/{fileId}.content if no other
+       * session has written since our last flush.
+       */
+      async function guardedFlush() {
         if (cancelled) return;
         try {
+          const remoteUpdatedAt = await getFileUpdatedAt(projectId, fileId);
+          // If remote timestamp is newer than our last write, skip — another session wrote
+          if (lastWriteTime && remoteUpdatedAt) {
+            const remoteMs = remoteUpdatedAt.toMillis ? remoteUpdatedAt.toMillis() : new Date(remoteUpdatedAt).getTime();
+            if (remoteMs > lastWriteTime) {
+              return; // Skip write — remote content is newer
+            }
+          }
           await updateFileContent(projectId, fileId, text.toString());
+          lastWriteTime = Date.now();
         } catch (err) {
           console.warn('Error snapshotting content:', err);
         }
-      }, SNAPSHOT_INTERVAL);
+      }
+
+      // Periodic snapshot: write yText content back to files/{fileId}.content
+      let snapshotTimer = setInterval(guardedFlush, SNAPSHOT_INTERVAL);
+
+      // ── Visibility change: pause/resume periodic snapshots ──
+      function handleVisibilityChange() {
+        if (cancelled) return;
+        if (document.hidden) {
+          // Tab hidden — stop the periodic timer to prevent stale writes
+          clearInterval(snapshotTimer);
+          snapshotTimer = null;
+        } else {
+          // Tab visible — wait for Yjs onSnapshot to re-sync, then restart timer
+          setTimeout(() => {
+            if (cancelled) return;
+            if (!snapshotTimer) {
+              snapshotTimer = setInterval(guardedFlush, SNAPSHOT_INTERVAL);
+            }
+          }, RESYNC_DELAY);
+        }
+      }
+      document.addEventListener('visibilitychange', handleVisibilityChange);
 
       if (!cancelled) {
         setYText(text);
@@ -94,11 +132,22 @@ export function useCollaboration(projectId, fileId, user, canEdit) {
       // Store cleanup function
       cleanupRef.current = async () => {
         cancelled = true;
-        clearInterval(snapshotTimer);
+        if (snapshotTimer) clearInterval(snapshotTimer);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
 
-        // Final snapshot before disconnect
+        // Final guarded snapshot before disconnect
         try {
-          await updateFileContent(projectId, fileId, text.toString());
+          const remoteUpdatedAt = await getFileUpdatedAt(projectId, fileId);
+          if (lastWriteTime && remoteUpdatedAt) {
+            const remoteMs = remoteUpdatedAt.toMillis ? remoteUpdatedAt.toMillis() : new Date(remoteUpdatedAt).getTime();
+            if (remoteMs > lastWriteTime) {
+              // Skip — remote content is newer, don't overwrite
+            } else {
+              await updateFileContent(projectId, fileId, text.toString());
+            }
+          } else {
+            await updateFileContent(projectId, fileId, text.toString());
+          }
         } catch (err) {
           console.warn('Error on final content snapshot:', err);
         }
