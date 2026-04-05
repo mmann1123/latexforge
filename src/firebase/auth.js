@@ -47,6 +47,7 @@ export async function loginWithGoogle() {
 
   const permitted = await isEmailPermitted(user.email);
   if (!permitted) {
+    await signOut(auth);
     throw new Error(
       'Access is limited to .edu and .org Google accounts. Contact the admin if you need access.'
     );
