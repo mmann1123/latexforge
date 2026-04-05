@@ -13,6 +13,7 @@ import {
 } from '../firebase/firestore.js';
 import { uploadFile, getProjectFileAsBase64, getFileUrl, saveCompiledPdf, loadCompiledPdf } from '../firebase/storage.js';
 import JSZip from 'jszip';
+import { addComment, resolveComment, subscribeComments } from '../firebase/comments.js';
 import Editor from '../components/Editor.jsx';
 import Toolbar from '../components/Toolbar.jsx';
 import PdfViewer from '../components/PdfViewer.jsx';
@@ -39,6 +40,7 @@ export default function ProjectEditor() {
   const [titleValue, setTitleValue] = useState('');
   const [filesMenuOpen, setFilesMenuOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [comments, setComments] = useState([]);
 
   // Resizable pane state
   const [fileTreeVisible, setFileTreeVisible] = useState(() => localStorage.getItem('latexforge-filetree-visible') !== 'false');
@@ -135,6 +137,39 @@ export default function ProjectEditor() {
       setSelectedFileId((mainTex || files[0]).id);
     }
   }, [files]);
+
+  // Subscribe to comments for the selected file
+  useEffect(() => {
+    if (!projectId || !selectedFileId) {
+      setComments([]);
+      return;
+    }
+    const unsubscribe = subscribeComments(projectId, selectedFileId, setComments);
+    return () => unsubscribe();
+  }, [projectId, selectedFileId]);
+
+  async function handleAddComment(line, text) {
+    if (!projectId || !selectedFileId || !user) return;
+    try {
+      await addComment(projectId, selectedFileId, {
+        line,
+        text,
+        authorUid: user.uid,
+        authorName: user.displayName || user.email,
+      });
+    } catch (err) {
+      console.error('Error adding comment:', err);
+    }
+  }
+
+  async function handleResolveComment(commentId) {
+    if (!projectId || !selectedFileId) return;
+    try {
+      await resolveComment(projectId, selectedFileId, commentId);
+    } catch (err) {
+      console.error('Error resolving comment:', err);
+    }
+  }
 
   // Sync title
   useEffect(() => {
@@ -733,6 +768,9 @@ export default function ProjectEditor() {
                 insertRef={editorInsertRef}
                 goToLineRef={editorGoToLineRef}
                 undoRedoRef={editorUndoRedoRef}
+                comments={comments}
+                onAddComment={canEdit ? handleAddComment : undefined}
+                onResolveComment={canEdit ? handleResolveComment : undefined}
               />
             )
           ) : (

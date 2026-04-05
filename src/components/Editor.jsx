@@ -9,6 +9,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { yCollab } from 'y-codemirror.next';
 import { latexCompletionSource } from '../utils/latexCompletions.js';
 import { spellCheckExtension } from '../utils/spellCheck.js';
+import { commentsExtension, commentsField, setCommentsEffect } from '../utils/comments.js';
 
 // Custom LaTeX stream parser
 const latexStreamParser = {
@@ -63,7 +64,7 @@ const latexLanguage = StreamLanguage.define(latexStreamParser);
  * 2. Legacy/solo mode (value + onChange props):
  *    Controlled component with debounced saves.
  */
-export default function Editor({ yText, awareness, undoManager, readOnly, value, onChange, insertRef, goToLineRef, undoRedoRef }) {
+export default function Editor({ yText, awareness, undoManager, readOnly, value, onChange, insertRef, goToLineRef, undoRedoRef, comments, onAddComment, onResolveComment }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const isExternalUpdate = useRef(false);
@@ -97,6 +98,7 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
       highlightSelectionMatches(),
       latexLanguage,
       spellCheckExtension(latexStreamParser),
+      commentsExtension(),
       autocompletion({ override: [latexCompletionSource] }),
       oneDark,
       yCollab(yText, awareness, { undoManager }),
@@ -120,7 +122,26 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
 
+    // Comment gutter click → add comment
+    function handleGutterClick(e) {
+      const lineNum = e.detail?.line;
+      if (lineNum && onAddComment) {
+        const text = window.prompt('Add a comment:');
+        if (text?.trim()) onAddComment(lineNum, text.trim());
+      }
+    }
+    // Comment resolve
+    function handleResolve(e) {
+      if (e.detail?.commentId && onResolveComment) {
+        onResolveComment(e.detail.commentId);
+      }
+    }
+    view.dom.addEventListener('comment-gutter-click', handleGutterClick);
+    view.dom.addEventListener('comment-resolve', handleResolve);
+
     return () => {
+      view.dom.removeEventListener('comment-gutter-click', handleGutterClick);
+      view.dom.removeEventListener('comment-resolve', handleResolve);
       view.destroy();
       viewRef.current = null;
     };
@@ -156,6 +177,7 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
         highlightSelectionMatches(),
         latexLanguage,
         spellCheckExtension(latexStreamParser),
+        commentsExtension(),
         autocompletion({ override: [latexCompletionSource] }),
         oneDark,
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...completionKeymap, indentWithTab]),
@@ -176,6 +198,13 @@ export default function Editor({ yText, awareness, undoManager, readOnly, value,
       viewRef.current = null;
     };
   }, [isCollaborative]);
+
+  // Sync comments into CodeMirror state when the comments prop changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !comments) return;
+    view.dispatch({ effects: setCommentsEffect.of(comments) });
+  }, [comments]);
 
   // Update content when value prop changes externally (legacy mode only)
   useEffect(() => {
