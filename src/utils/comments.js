@@ -105,6 +105,17 @@ class CommentMarker extends GutterMarker {
   }
 }
 
+class AddCommentMarker extends GutterMarker {
+  toDOM() {
+    const el = document.createElement('div');
+    el.className = 'cm-comment-add';
+    el.textContent = '+';
+    return el;
+  }
+}
+
+const addMarker = new AddCommentMarker();
+
 const commentGutter = gutter({
   class: 'cm-comment-gutter',
   lineMarker(view, line) {
@@ -114,7 +125,7 @@ const commentGutter = gutter({
     for (const c of comments) {
       if (c.line === lineNum) count++;
     }
-    return count > 0 ? new CommentMarker(count) : null;
+    return count > 0 ? new CommentMarker(count) : addMarker;
   },
   initialSpacer: () => new CommentMarker(0),
   domEventHandlers: {
@@ -194,6 +205,17 @@ const commentTheme = EditorView.baseTheme({
   '.cm-comment-gutter': {
     width: '16px',
     cursor: 'pointer',
+  },
+  '.cm-comment-add': {
+    color: 'rgba(76, 175, 80, 0.5)',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: '1.4',
+    opacity: '0',
+  },
+  '.cm-comment-gutter .cm-gutterElement:hover .cm-comment-add': {
+    opacity: '1',
   },
   '.cm-comment-marker': {
     color: '#4caf50',
