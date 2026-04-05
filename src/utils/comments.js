@@ -37,28 +37,43 @@ class CommentMarker extends GutterMarker {
   }
 }
 
-const commentGutter = gutter({
-  class: 'cm-comment-gutter',
-  markers(view) {
-    const comments = view.state.field(commentsField);
-    const markers = [];
-    // Group by line number
-    const byLine = {};
-    for (const c of comments) {
-      if (c.line >= 1 && c.line <= view.state.doc.lines) {
-        byLine[c.line] = (byLine[c.line] || 0) + 1;
+/** Build a RangeSet of gutter markers from comments array + doc. */
+function buildMarkerSet(comments, doc) {
+  const byLine = {};
+  for (const c of comments) {
+    if (c.line >= 1 && c.line <= doc.lines) {
+      byLine[c.line] = (byLine[c.line] || 0) + 1;
+    }
+  }
+  const ranges = [];
+  for (const [lineNum, count] of Object.entries(byLine)) {
+    const line = doc.line(Number(lineNum));
+    ranges.push(new CommentMarker(count).range(line.from));
+  }
+  return RangeSet.of(ranges, true);
+}
+
+const commentMarkersField = StateField.define({
+  create() {
+    return RangeSet.empty;
+  },
+  update(markers, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setCommentsEffect)) {
+        return buildMarkerSet(e.value, tr.state.doc);
       }
     }
-    for (const [lineNum, count] of Object.entries(byLine)) {
-      const line = view.state.doc.line(Number(lineNum));
-      markers.push(line.from, new CommentMarker(count));
-    }
-    return RangeSet.of(markers, true);
+    if (tr.docChanged) return markers.map(tr.changes);
+    return markers;
   },
+});
+
+const commentGutter = gutter({
+  class: 'cm-comment-gutter',
+  markers: commentMarkersField,
   domEventHandlers: {
     click(view, line) {
       const lineNum = view.state.doc.lineAt(line.from).number;
-      // Dispatch custom event for the editor to handle
       view.dom.dispatchEvent(new CustomEvent('comment-gutter-click', {
         detail: { line: lineNum },
         bubbles: true,
@@ -190,6 +205,7 @@ const commentTheme = EditorView.baseTheme({
 export function commentsExtension() {
   return [
     commentsField,
+    commentMarkersField,
     commentGutter,
     commentTooltip,
     commentTheme,
