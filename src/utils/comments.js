@@ -1,4 +1,4 @@
-import { StateField, StateEffect, RangeSet } from '@codemirror/state';
+import { StateField, StateEffect } from '@codemirror/state';
 import { gutter, GutterMarker, EditorView, hoverTooltip } from '@codemirror/view';
 
 // ── State Effects ───────────────────────────────────────────
@@ -37,40 +37,18 @@ class CommentMarker extends GutterMarker {
   }
 }
 
-/** Build a RangeSet of gutter markers from comments array + doc. */
-function buildMarkerSet(comments, doc) {
-  const byLine = {};
-  for (const c of comments) {
-    if (c.line >= 1 && c.line <= doc.lines) {
-      byLine[c.line] = (byLine[c.line] || 0) + 1;
-    }
-  }
-  const ranges = [];
-  for (const [lineNum, count] of Object.entries(byLine)) {
-    const line = doc.line(Number(lineNum));
-    ranges.push(new CommentMarker(count).range(line.from));
-  }
-  return RangeSet.of(ranges, true);
-}
-
-const commentMarkersField = StateField.define({
-  create() {
-    return RangeSet.empty;
-  },
-  update(markers, tr) {
-    for (const e of tr.effects) {
-      if (e.is(setCommentsEffect)) {
-        return buildMarkerSet(e.value, tr.state.doc);
-      }
-    }
-    if (tr.docChanged) return markers.map(tr.changes);
-    return markers;
-  },
-});
-
 const commentGutter = gutter({
   class: 'cm-comment-gutter',
-  markers: commentMarkersField,
+  lineMarker(view, line) {
+    const comments = view.state.field(commentsField);
+    const lineNum = view.state.doc.lineAt(line.from).number;
+    let count = 0;
+    for (const c of comments) {
+      if (c.line === lineNum) count++;
+    }
+    return count > 0 ? new CommentMarker(count) : null;
+  },
+  initialSpacer: () => new CommentMarker(0),
   domEventHandlers: {
     click(view, line) {
       const lineNum = view.state.doc.lineAt(line.from).number;
@@ -205,7 +183,6 @@ const commentTheme = EditorView.baseTheme({
 export function commentsExtension() {
   return [
     commentsField,
-    commentMarkersField,
     commentGutter,
     commentTooltip,
     commentTheme,
