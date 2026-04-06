@@ -4,7 +4,7 @@ Hi everyone,
 
 I wanted to share a tool I've been building that I think many of you will find useful: LaTeX Forge (https://latexforge.web.app).
 
-What is it?
+What is it? 
 
 LaTeX Forge is a lightweight, web-based LaTeX editor -- think of it as a simpler alternative to Overleaf. You write LaTeX in your browser, hit compile, and get a PDF. No software to install, no subscription required.
 
