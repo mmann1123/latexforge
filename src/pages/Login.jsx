@@ -20,7 +20,7 @@ export default function Login() {
         navigate('/');
       }
     } catch (err) {
-      if (err.message?.includes('.edu and .org')) {
+      if (err.message?.includes('Access is limited to')) {
         navigate('/access-denied', { replace: true });
       } else {
         setError(err.message);
@@ -62,7 +62,7 @@ export default function Login() {
               {loading ? 'Signing in...' : 'Get Started with Google'}
             </button>
             <p className="landing-access-note">
-              Available for .edu and .org Google accounts. Other accounts may be granted access by an administrator.
+              Available for academic and nonprofit Google accounts (.edu, .ac.uk, .ca, .org, and more).
             </p>
           </div>
         </div>

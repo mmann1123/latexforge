@@ -98,6 +98,42 @@ describe('auth module', () => {
       });
       expect(await isEmailPermitted('FRIEND@GMAIL.COM')).toBe(true);
     });
+
+    it('permits .ac.uk email (UK academic)', async () => {
+      expect(await isEmailPermitted('student@cam.ac.uk')).toBe(true);
+    });
+
+    it('permits .ac.uk subdomain email', async () => {
+      expect(await isEmailPermitted('user@cs.ox.ac.uk')).toBe(true);
+    });
+
+    it('permits .edu.br email (Brazil academic)', async () => {
+      expect(await isEmailPermitted('aluno@usp.edu.br')).toBe(true);
+    });
+
+    it('permits .ca email (Canadian institution)', async () => {
+      expect(await isEmailPermitted('student@ubc.ca')).toBe(true);
+    });
+
+    it('permits .edu.eu email (European academic)', async () => {
+      expect(await isEmailPermitted('user@university.edu.eu')).toBe(true);
+    });
+
+    it('permits .edu.mx email (Mexico academic)', async () => {
+      expect(await isEmailPermitted('alumno@unam.edu.mx')).toBe(true);
+    });
+
+    it('permits .ac.jp email (Japan academic)', async () => {
+      expect(await isEmailPermitted('student@u-tokyo.ac.jp')).toBe(true);
+    });
+
+    it('rejects non-academic country domain', async () => {
+      expect(await isEmailPermitted('user@company.co.uk')).toBe(false);
+    });
+
+    it('rejects non-academic .com domain', async () => {
+      expect(await isEmailPermitted('user@google.com')).toBe(false);
+    });
   });
 
   describe('loginWithGoogle', () => {
@@ -138,7 +174,7 @@ describe('auth module', () => {
       mockSignInWithPopup.mockResolvedValue({ user: mockUser });
 
       await expect(loginWithGoogle()).rejects.toThrow(
-        'Access is limited to .edu and .org Google accounts'
+        'Access is limited to academic and nonprofit Google accounts'
       );
     });
 

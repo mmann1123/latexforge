@@ -39,7 +39,10 @@ export default function AccessDenied() {
         <div className="access-denied-details">
           <h3>Supported accounts</h3>
           <ul>
-            <li><strong>.edu</strong> accounts (universities and colleges)</li>
+            <li><strong>.edu</strong> accounts (US universities and colleges)</li>
+            <li><strong>.ca</strong> accounts (Canadian institutions)</li>
+            <li><strong>.ac.uk</strong> accounts (UK universities)</li>
+            <li><strong>.edu.xx</strong> accounts (international academic — .edu.br, .edu.mx, .edu.ar, .edu.eu, etc.)</li>
             <li><strong>.org</strong> accounts (research organizations, nonprofits)</li>
             <li>Personal accounts added by an administrator</li>
           </ul>

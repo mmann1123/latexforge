@@ -14,8 +14,21 @@ export function getAuthCheckPromise() { return _authCheckPromise; }
 // Admin email — always permitted regardless of domain
 const ADMIN_EMAILS = ['mmann1123@gmail.com'];
 
-// Allowed top-level domain suffixes
-const ALLOWED_DOMAIN_SUFFIXES = ['.edu', '.org'];
+// Allowed domain suffixes (academic and nonprofit institutions)
+const ALLOWED_DOMAIN_SUFFIXES = [
+  // US / general
+  '.edu', '.org',
+  // Canada (no .edu.ca exists; universities use plain .ca, restricted to Canadian entities by CIRA)
+  '.ca',
+  // UK
+  '.ac.uk',
+  // Europe
+  '.edu.eu', '.edu.es', '.edu.pt',
+  // Latin America
+  '.edu.br', '.edu.mx', '.edu.ar', '.edu.co', '.edu.pe',
+  // Other academic (Asia, Oceania, Africa)
+  '.ac.nz', '.ac.au', '.ac.in', '.ac.jp', '.ac.za', '.ac.at', '.ac.be',
+];
 
 /**
  * Check if an email is permitted to use the app.
@@ -60,7 +73,7 @@ export async function loginWithGoogle() {
       _authResolve({ permitted: false });
       await signOut(auth);
       throw new Error(
-        'Access is limited to .edu and .org Google accounts. Contact the admin if you need access.'
+        'Access is limited to academic and nonprofit Google accounts (.edu, .ac.uk, .ca, .org, and more). Contact the admin if you need access.'
       );
     }
 
