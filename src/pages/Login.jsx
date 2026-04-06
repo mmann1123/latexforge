@@ -20,7 +20,11 @@ export default function Login() {
         navigate('/');
       }
     } catch (err) {
-      setError(err.message);
+      if (err.message?.includes('.edu and .org')) {
+        navigate('/access-denied', { replace: true });
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }

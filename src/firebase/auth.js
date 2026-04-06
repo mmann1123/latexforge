@@ -6,6 +6,11 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './config.js';
 
+// Auth gate — lets useAuth know a permission check is in progress
+let _authResolve = null;
+let _authCheckPromise = null;
+export function getAuthCheckPromise() { return _authCheckPromise; }
+
 // Admin email — always permitted regardless of domain
 const ADMIN_EMAILS = ['mmann1123@gmail.com'];
 
@@ -42,29 +47,43 @@ export async function isEmailPermitted(email) {
 
 export async function loginWithGoogle() {
   const provider = new GoogleAuthProvider();
-  const userCredential = await signInWithPopup(auth, provider);
-  const user = userCredential.user;
+  provider.setCustomParameters({ prompt: 'select_account' });
 
-  const permitted = await isEmailPermitted(user.email);
-  if (!permitted) {
-    await signOut(auth);
-    throw new Error(
-      'Access is limited to .edu and .org Google accounts. Contact the admin if you need access.'
+  _authCheckPromise = new Promise((resolve) => { _authResolve = resolve; });
+
+  try {
+    const userCredential = await signInWithPopup(auth, provider);
+    const user = userCredential.user;
+
+    const permitted = await isEmailPermitted(user.email);
+    if (!permitted) {
+      _authResolve({ permitted: false });
+      await signOut(auth);
+      throw new Error(
+        'Access is limited to .edu and .org Google accounts. Contact the admin if you need access.'
+      );
+    }
+
+    _authResolve({ permitted: true });
+
+    await setDoc(
+      doc(db, 'users', user.uid),
+      {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || '',
+        createdAt: serverTimestamp(),
+      },
+      { merge: true }
     );
+
+    return user;
+  } finally {
+    // Safety net: ensure the gate is always resolved and cleared
+    if (_authResolve) _authResolve({ permitted: false });
+    _authCheckPromise = null;
+    _authResolve = null;
   }
-
-  await setDoc(
-    doc(db, 'users', user.uid),
-    {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName || '',
-      createdAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  return user;
 }
 
 export async function logout() {

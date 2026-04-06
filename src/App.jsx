@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import ProjectEditor from './pages/ProjectEditor.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
 import InviteColleagues from './pages/InviteColleagues.jsx';
+import AccessDenied from './pages/AccessDenied.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -64,6 +65,10 @@ export default function App() {
               <Login />
             </PublicRoute>
           }
+        />
+        <Route
+          path="/access-denied"
+          element={<AccessDenied />}
         />
         <Route
           path="/register"
