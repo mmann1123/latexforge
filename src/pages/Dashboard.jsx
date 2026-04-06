@@ -1,9 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { getProjects, getSharedProjects, getDeletedProjects, createProject, deleteProject, restoreProject, permanentlyDeleteProject } from '../firebase/firestore.js';
+import { getProjects, getSharedProjects, getDeletedProjects, createProject, createFile, deleteProject, restoreProject, permanentlyDeleteProject } from '../firebase/firestore.js';
+import { uploadFile } from '../firebase/storage.js';
 import { getPendingInvitations, acceptInvitation, declineInvitation } from '../firebase/sharing.js';
 import { logout } from '../firebase/auth.js';
+
+function generatePlaceholderPng() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 400;
+  canvas.height = 200;
+  const ctx = canvas.getContext('2d');
+  // Light gray background
+  ctx.fillStyle = '#e8e8e8';
+  ctx.fillRect(0, 0, 400, 200);
+  // Border
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(4, 4, 392, 192);
+  // Icon (simple image placeholder)
+  ctx.fillStyle = '#999';
+  ctx.beginPath();
+  ctx.moveTo(170, 100);
+  ctx.lineTo(200, 70);
+  ctx.lineTo(230, 100);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(180, 100, 40, 30);
+  // Text
+  ctx.fillStyle = '#888';
+  ctx.font = '16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Sample Figure', 200, 160);
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/png');
+  });
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -47,6 +79,15 @@ export default function Dashboard() {
     if (!name || !name.trim()) return;
     try {
       const projectId = await createProject(user.uid, name.trim());
+      // Upload placeholder image to figures/ folder
+      try {
+        const blob = await generatePlaceholderPng();
+        const file = new File([blob], 'example.png', { type: 'image/png' });
+        await uploadFile(projectId, file, 'figures/');
+        await createFile(projectId, 'figures/example.png', 'binary', '');
+      } catch (imgErr) {
+        console.warn('Could not create placeholder image:', imgErr);
+      }
       navigate(`/project/${projectId}`);
     } catch (err) {
       console.error('Error creating project:', err);

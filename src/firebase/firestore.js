@@ -16,7 +16,6 @@ import { db } from './config.js';
 const STARTER_LATEX = `\\documentclass{article}
 \\usepackage{amsmath}
 \\usepackage{graphicx}
-
 \\title{My New Document}
 \\author{Author Name}
 \\date{\\today}
@@ -30,6 +29,14 @@ Write your introduction here.
 
 \\section{Methods}
 Describe your methods here.
+
+% To add your own figures, upload images to the figures/ folder
+\\begin{figure}[h]
+  \\centering
+  \\includegraphics[width=0.5\\textwidth]{figures/example.png}
+  \\caption{A sample figure. Replace with your own image.}
+  \\label{fig:example}
+\\end{figure}
 
 \\end{document}`;
 

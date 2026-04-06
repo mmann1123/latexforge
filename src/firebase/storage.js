@@ -25,6 +25,24 @@ export async function deleteStorageFile(storagePath) {
 }
 
 /**
+ * Move a file in Storage from one path to another (download → upload → delete old).
+ * Firebase Storage has no native move, so we copy then delete.
+ */
+export async function moveStorageFile(projectId, oldName, newName) {
+  const oldPath = `projects/${projectId}/${oldName}`;
+  const newPath = `projects/${projectId}/${newName}`;
+  const oldRef = ref(storage, oldPath);
+
+  const url = await getDownloadURL(oldRef);
+  const response = await fetch(url);
+  const blob = await response.blob();
+
+  const newRef = ref(storage, newPath);
+  await uploadBytes(newRef, blob);
+  await deleteObject(oldRef);
+}
+
+/**
  * Save a compiled PDF (base64) to Firebase Storage for the project.
  */
 export async function saveCompiledPdf(projectId, base64Pdf) {

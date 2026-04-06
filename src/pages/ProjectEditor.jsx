@@ -11,7 +11,7 @@ import {
   deleteFile,
   renameFile,
 } from '../firebase/firestore.js';
-import { uploadFile, getProjectFileAsBase64, getFileUrl, saveCompiledPdf, loadCompiledPdf } from '../firebase/storage.js';
+import { uploadFile, getProjectFileAsBase64, getFileUrl, saveCompiledPdf, loadCompiledPdf, moveStorageFile } from '../firebase/storage.js';
 import JSZip from 'jszip';
 import { addComment, resolveComment, subscribeComments } from '../firebase/comments.js';
 import Editor from '../components/Editor.jsx';
@@ -447,8 +447,12 @@ export default function ProjectEditor() {
     const newDisplayName = window.prompt('New name:', displayName);
     if (!newDisplayName?.trim() || newDisplayName.trim() === displayName) return;
     const folder = file.name.includes('/') ? file.name.substring(0, file.name.lastIndexOf('/') + 1) : '';
+    const newName = folder + newDisplayName.trim();
     try {
-      await renameFile(projectId, file.id, folder + newDisplayName.trim());
+      if (file.type === 'binary' && newName !== file.name) {
+        await moveStorageFile(projectId, file.name, newName);
+      }
+      await renameFile(projectId, file.id, newName);
     } catch (err) {
       console.error('Error renaming file:', err);
     }
@@ -479,6 +483,9 @@ export default function ProjectEditor() {
     const newName = targetFolder ? `${targetFolder}/${fileName}` : fileName;
     if (newName === file.name) return;
     try {
+      if (file.type === 'binary') {
+        await moveStorageFile(projectId, file.name, newName);
+      }
       await renameFile(projectId, file.id, newName);
     } catch (err) {
       console.error('Error moving file:', err);
