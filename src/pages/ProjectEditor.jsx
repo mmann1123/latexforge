@@ -21,6 +21,7 @@ import CompileLog from '../components/CompileLog.jsx';
 import FileTree from '../components/FileTree.jsx';
 import DocumentOutline from '../components/DocumentOutline.jsx';
 import ShareDialog from '../components/ShareDialog.jsx';
+import MathLiveDialog from '../components/MathLiveDialog.jsx';
 import CollaboratorAvatars from '../components/CollaboratorAvatars.jsx';
 import FilePreview from '../components/FilePreview.jsx';
 
@@ -40,6 +41,7 @@ export default function ProjectEditor() {
   const [titleValue, setTitleValue] = useState('');
   const [filesMenuOpen, setFilesMenuOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [mathDialogOpen, setMathDialogOpen] = useState(false);
   const [comments, setComments] = useState([]);
 
   // Resizable pane state
@@ -755,6 +757,7 @@ export default function ProjectEditor() {
             onInsert={handleInsertSnippet}
             onUndo={() => editorUndoRedoRef.current?.undo()}
             onRedo={() => editorUndoRedoRef.current?.redo()}
+            onFormulaEditor={canEdit ? () => setMathDialogOpen(true) : undefined}
           />
           <CompileLog
             log={compileLog}
@@ -805,6 +808,14 @@ export default function ProjectEditor() {
           projectId={projectId}
           project={project}
           onClose={() => setShareDialogOpen(false)}
+        />
+      )}
+
+      {/* MathLive Formula Editor */}
+      {mathDialogOpen && (
+        <MathLiveDialog
+          onInsert={handleInsertSnippet}
+          onClose={() => setMathDialogOpen(false)}
         />
       )}
     </div>

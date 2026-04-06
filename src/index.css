@@ -1798,6 +1798,97 @@ body {
   }
 }
 
+/* ===== MathLive Formula Dialog ===== */
+.mathlive-dialog {
+  background: #2a2a3d;
+  border-radius: 10px;
+  width: 600px;
+  max-width: 95vw;
+  padding: 24px;
+  position: relative;
+  color: #e0e0e0;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+.mathlive-dialog h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: #fff;
+}
+.mathlive-hint {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 16px;
+}
+.mathlive-field {
+  display: block;
+  width: 100%;
+  min-height: 60px;
+  font-size: 22px;
+  background: #1e1e2e;
+  color: #fff;
+  border: 1px solid #3a3a50;
+  border-radius: 6px;
+  padding: 12px;
+  --selection-background-color: rgba(76, 175, 80, 0.3);
+}
+.mathlive-field:focus-within {
+  border-color: #4caf50;
+}
+.mathlive-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.mathlive-mode-toggle {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #bbb;
+}
+.mathlive-mode-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.mathlive-mode-toggle code {
+  font-size: 11px;
+  color: #888;
+}
+.mathlive-actions {
+  display: flex;
+  gap: 8px;
+}
+.mathlive-btn-cancel {
+  background: transparent;
+  color: #999;
+  border: 1px solid #555;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mathlive-btn-cancel:hover {
+  border-color: #888;
+  color: #ccc;
+}
+.mathlive-btn-insert {
+  background: #4caf50;
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mathlive-btn-insert:hover {
+  background: #43a047;
+}
+
 /* ===== Collaborator Avatars ===== */
 .collaborator-avatars {
   display: flex;

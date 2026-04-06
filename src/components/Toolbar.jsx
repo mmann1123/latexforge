@@ -30,7 +30,7 @@ const NUMBERED_SNIPPET = `\\begin{enumerate}
   \\item
 \\end{enumerate}`;
 
-export default function Toolbar({ onInsert, onUndo, onRedo }) {
+export default function Toolbar({ onInsert, onUndo, onRedo, onFormulaEditor }) {
   const [figureOpen, setFigureOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
 
@@ -67,6 +67,11 @@ export default function Toolbar({ onInsert, onUndo, onRedo }) {
       <button className="toolbar-btn" title="Inline math ($...$)" onClick={() => onInsert('$  $')}>
         $
       </button>
+      {onFormulaEditor && (
+        <button className="toolbar-btn toolbar-btn-formula" title="Visual formula editor" onClick={onFormulaEditor}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="1" y="13" fontSize="14" fontFamily="serif" fontStyle="italic">f</text><text x="7" y="8" fontSize="8" fontFamily="serif">(x)</text></svg>
+        </button>
+      )}
       <span className="toolbar-sep" />
 
       {/* Figure dropdown */}
