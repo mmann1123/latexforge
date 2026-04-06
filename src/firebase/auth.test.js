@@ -5,12 +5,18 @@ const mockSignInWithPopup = vi.fn();
 const mockSignOut = vi.fn();
 const mockSetDoc = vi.fn();
 const mockGetDoc = vi.fn();
+const mockSetCustomParameters = vi.fn();
 
-vi.mock('firebase/auth', () => ({
-  signInWithPopup: (...args) => mockSignInWithPopup(...args),
-  GoogleAuthProvider: vi.fn(),
-  signOut: (...args) => mockSignOut(...args),
-}));
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider {
+    constructor() { this.setCustomParameters = mockSetCustomParameters; }
+  }
+  return {
+    signInWithPopup: (...args) => mockSignInWithPopup(...args),
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    signOut: (...args) => mockSignOut(...args),
+  };
+});
 
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(() => 'mock-doc-ref'),
@@ -25,16 +31,18 @@ vi.mock('./config.js', () => ({
 }));
 
 describe('auth module', () => {
-  let loginWithGoogle, logout, isEmailPermitted;
+  let loginWithGoogle, logout, isEmailPermitted, getAuthCheckPromise;
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockSignOut.mockResolvedValue();
     // Default: Firestore exceptions list is empty
     mockGetDoc.mockResolvedValue({ exists: () => false });
     const mod = await import('./auth.js');
     loginWithGoogle = mod.loginWithGoogle;
     logout = mod.logout;
     isEmailPermitted = mod.isEmailPermitted;
+    getAuthCheckPromise = mod.getAuthCheckPromise;
   });
 
   describe('isEmailPermitted', () => {
@@ -132,6 +140,61 @@ describe('auth module', () => {
       await expect(loginWithGoogle()).rejects.toThrow(
         'Access is limited to .edu and .org Google accounts'
       );
+    });
+
+    it('signs out rejected users', async () => {
+      const mockUser = { uid: 'g5', email: 'random@gmail.com', displayName: 'Random' };
+      mockSignInWithPopup.mockResolvedValue({ user: mockUser });
+
+      await expect(loginWithGoogle()).rejects.toThrow();
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    it('forces Google account chooser via select_account', async () => {
+      const mockUser = { uid: 'g1', email: 'mmann1123@gmail.com', displayName: 'Admin', getIdToken: vi.fn() };
+      mockSignInWithPopup.mockResolvedValue({ user: mockUser });
+      mockSetDoc.mockResolvedValue();
+
+      await loginWithGoogle();
+      expect(mockSetCustomParameters).toHaveBeenCalledWith({ prompt: 'select_account' });
+    });
+
+    it('resolves auth gate with permitted:true on success', async () => {
+      const mockUser = { uid: 'g1', email: 'mmann1123@gmail.com', displayName: 'Admin', getIdToken: vi.fn() };
+      mockSignInWithPopup.mockResolvedValue({ user: mockUser });
+      mockSetDoc.mockResolvedValue();
+
+      // Start login — gate promise should exist during the call
+      const loginPromise = loginWithGoogle();
+      const gatePromise = getAuthCheckPromise();
+      expect(gatePromise).not.toBeNull();
+
+      await loginPromise;
+      // After login completes, gate should be cleared
+      expect(getAuthCheckPromise()).toBeNull();
+    });
+
+    it('resolves auth gate with permitted:false on rejection', async () => {
+      const mockUser = { uid: 'g5', email: 'random@gmail.com', displayName: 'Random' };
+      mockSignInWithPopup.mockResolvedValue({ user: mockUser });
+
+      const loginPromise = loginWithGoogle().catch(() => {});
+      const gatePromise = getAuthCheckPromise();
+      expect(gatePromise).not.toBeNull();
+
+      // The gate should resolve with permitted: false
+      const result = await gatePromise;
+      expect(result).toEqual({ permitted: false });
+
+      await loginPromise;
+      expect(getAuthCheckPromise()).toBeNull();
+    });
+
+    it('clears auth gate even if signInWithPopup fails', async () => {
+      mockSignInWithPopup.mockRejectedValue(new Error('popup closed'));
+
+      await expect(loginWithGoogle()).rejects.toThrow('popup closed');
+      expect(getAuthCheckPromise()).toBeNull();
     });
 
     it('checks domain case-insensitively', async () => {
