@@ -177,6 +177,13 @@ export default function Login() {
 
       <footer className="landing-footer">
         <p>LaTeX Forge &mdash; A lightweight alternative to Overleaf for teams and classrooms.</p>
+        <p className="landing-footer-links">
+          <a href="/legal#privacy">Privacy Policy</a>
+          <span>&middot;</span>
+          <a href="/legal#terms">Terms of Service</a>
+          <span>&middot;</span>
+          <a href="/legal#cookies">Cookie Policy</a>
+        </p>
       </footer>
     </div>
   );

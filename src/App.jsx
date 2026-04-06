@@ -7,6 +7,8 @@ import ProjectEditor from './pages/ProjectEditor.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
 import InviteColleagues from './pages/InviteColleagues.jsx';
 import AccessDenied from './pages/AccessDenied.jsx';
+import Legal from './pages/Legal.jsx';
+import CookieConsent from './components/CookieConsent.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -71,6 +73,10 @@ export default function App() {
           element={<AccessDenied />}
         />
         <Route
+          path="/legal"
+          element={<Legal />}
+        />
+        <Route
           path="/register"
           element={<Navigate to="/login" replace />}
         />
@@ -95,6 +101,7 @@ export default function App() {
           }
         />
       </Routes>
+      <CookieConsent />
     </BrowserRouter>
   );
 }
