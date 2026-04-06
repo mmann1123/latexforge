@@ -45,14 +45,15 @@ describe('firestore module', () => {
   });
 
   describe('createProject', () => {
-    it('creates a project and a default main.tex file', async () => {
+    it('creates a project with main.tex and references.bib', async () => {
       mockAddDoc
         .mockResolvedValueOnce({ id: 'proj-123' })  // project doc
-        .mockResolvedValueOnce({ id: 'file-1' });     // main.tex
+        .mockResolvedValueOnce({ id: 'file-1' })     // main.tex
+        .mockResolvedValueOnce({ id: 'file-2' });     // references.bib
 
       const id = await createProject('user-1', 'My Project');
       expect(id).toBe('proj-123');
-      expect(mockAddDoc).toHaveBeenCalledTimes(2);
+      expect(mockAddDoc).toHaveBeenCalledTimes(3);
 
       // First call: project doc
       const projectData = mockAddDoc.mock.calls[0][1];
@@ -64,7 +65,13 @@ describe('firestore module', () => {
       const fileData = mockAddDoc.mock.calls[1][1];
       expect(fileData.name).toBe('main.tex');
       expect(fileData.type).toBe('tex');
-      expect(fileData.content).toContain('\\documentclass{article}');
+      expect(fileData.content).toContain('\\documentclass');
+
+      // Third call: references.bib file
+      const bibData = mockAddDoc.mock.calls[2][1];
+      expect(bibData.name).toBe('references.bib');
+      expect(bibData.type).toBe('tex');
+      expect(bibData.content).toContain('@article');
     });
   });
 
