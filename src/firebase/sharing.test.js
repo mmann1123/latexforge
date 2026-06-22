@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Firestore functions
 const mockAddDoc = vi.fn();
+const mockSetDoc = vi.fn();
 const mockGetDoc = vi.fn();
 const mockGetDocs = vi.fn();
 const mockUpdateDoc = vi.fn();
@@ -11,6 +12,7 @@ vi.mock('firebase/firestore', () => ({
   collection: vi.fn((...args) => args.join('/')),
   doc: vi.fn((...args) => args.join('/')),
   addDoc: (...args) => mockAddDoc(...args),
+  setDoc: (...args) => mockSetDoc(...args),
   getDoc: (...args) => mockGetDoc(...args),
   getDocs: (...args) => mockGetDocs(...args),
   updateDoc: (...args) => mockUpdateDoc(...args),
@@ -36,6 +38,7 @@ import {
   getProjectInvitations,
   cancelInvitation,
   baseDomainEmail,
+  invitedEmailFromId,
 } from './sharing.js';
 
 describe('sharing module', () => {
@@ -44,46 +47,47 @@ describe('sharing module', () => {
   });
 
   describe('inviteCollaborator', () => {
-    it('creates invitation and sends email', async () => {
-      mockAddDoc.mockResolvedValue({ id: 'inv-1' });
-
+    it('creates invitation with a deterministic ID and sends email', async () => {
       const user = { uid: 'owner-1', displayName: 'Owner', email: 'owner@test.com' };
       const id = await inviteCollaborator('proj-1', 'My Project', 'Friend@Test.com', 'editor', user);
 
-      expect(id).toBe('inv-1');
-      // Should create invitation doc and mail doc
-      expect(mockAddDoc).toHaveBeenCalledTimes(2);
+      // ID is baseDomain(email)_projectId
+      expect(id).toBe('friend@test.com_proj-1');
 
-      // Invitation doc
-      const invData = mockAddDoc.mock.calls[0][1];
+      // Invitation written via setDoc at the deterministic ID
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
+      const invData = mockSetDoc.mock.calls[0][1];
       expect(invData.invitedEmail).toBe('friend@test.com'); // lowercased
       expect(invData.role).toBe('editor');
       expect(invData.status).toBe('pending');
       expect(invData.projectId).toBe('proj-1');
 
-      // Mail doc
-      const mailData = mockAddDoc.mock.calls[1][1];
+      // Mail doc created via addDoc
+      expect(mockAddDoc).toHaveBeenCalledTimes(1);
+      const mailData = mockAddDoc.mock.calls[0][1];
       expect(mailData.to).toBe('friend@test.com');
       expect(mailData.message.subject).toContain('My Project');
     });
 
-    it('defaults role to editor when not specified', async () => {
-      mockAddDoc.mockResolvedValue({ id: 'inv-2' });
+    it('uses the base domain in the ID for subdomain emails', async () => {
+      const user = { uid: 'owner-1', email: 'owner@test.com' };
+      const id = await inviteCollaborator('proj-9', 'P', 'jane@cs.stanford.edu', 'viewer', user);
+      expect(id).toBe('jane@stanford.edu_proj-9');
+    });
 
+    it('defaults role to editor when not specified', async () => {
       const user = { uid: 'u1', email: 'a@b.com' };
       await inviteCollaborator('proj-1', 'P', 'x@y.com', null, user);
 
-      const invData = mockAddDoc.mock.calls[0][1];
+      const invData = mockSetDoc.mock.calls[0][1];
       expect(invData.role).toBe('editor');
     });
 
     it('uses user email as inviterName when displayName is missing', async () => {
-      mockAddDoc.mockResolvedValue({ id: 'inv-3' });
-
       const user = { uid: 'u1', email: 'fallback@test.com', displayName: '' };
       await inviteCollaborator('proj-1', 'P', 'x@y.com', 'viewer', user);
 
-      const invData = mockAddDoc.mock.calls[0][1];
+      const invData = mockSetDoc.mock.calls[0][1];
       expect(invData.invitedByName).toBe('fallback@test.com');
     });
   });
@@ -147,8 +151,8 @@ describe('sharing module', () => {
       // Project collaborator update
       expect(mockUpdateDoc.mock.calls[0][1]).toHaveProperty('collaborators.user-uid', 'editor');
 
-      // Invitation status update
-      expect(mockUpdateDoc.mock.calls[1][1]).toEqual({ status: 'accepted' });
+      // Invitation status update records the accepting uid
+      expect(mockUpdateDoc.mock.calls[1][1]).toEqual({ status: 'accepted', acceptedBy: 'user-uid' });
     });
 
     it('throws when invitation not found', async () => {
@@ -234,15 +238,16 @@ describe('sharing module', () => {
   });
 
   describe('getProjectInvitations', () => {
-    it('returns pending invitations for a project', async () => {
+    it('returns all invitations for a project', async () => {
       mockGetDocs.mockResolvedValue({
         docs: [
           { id: 'inv-1', data: () => ({ invitedEmail: 'a@b.com', status: 'pending' }) },
+          { id: 'inv-2', data: () => ({ invitedEmail: 'c@d.com', status: 'accepted', acceptedBy: 'uid-2' }) },
         ],
       });
 
       const invites = await getProjectInvitations('proj-1');
-      expect(invites).toHaveLength(1);
+      expect(invites).toHaveLength(2);
       expect(invites[0].id).toBe('inv-1');
     });
   });
@@ -274,6 +279,25 @@ describe('sharing module', () => {
 
     it('lowercases the result', () => {
       expect(baseDomainEmail('User@GWmail.GWU.EDU')).toBe('user@gwu.edu');
+    });
+  });
+
+  describe('invitedEmailFromId', () => {
+    it('extracts the invited email from a deterministic ID', () => {
+      expect(invitedEmailFromId('jane@stanford.edu_PROJabc123')).toBe('jane@stanford.edu');
+    });
+
+    it('handles underscores in the local part (last underscore is the separator)', () => {
+      expect(invitedEmailFromId('jane_doe@gwu.edu_PROJabc123')).toBe('jane_doe@gwu.edu');
+    });
+
+    it('returns empty string for legacy random IDs without an underscore', () => {
+      expect(invitedEmailFromId('SwvmMtgGdCPUrY2cDut')).toBe('');
+    });
+
+    it('returns empty string for empty input', () => {
+      expect(invitedEmailFromId('')).toBe('');
+      expect(invitedEmailFromId(null)).toBe('');
     });
   });
 

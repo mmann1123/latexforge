@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { loginWithGoogle } from '../firebase/auth.js';
+import { invitedEmailFromId } from '../firebase/sharing.js';
 
 export default function Login() {
   const [error, setError] = useState('');
@@ -8,14 +9,15 @@ export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const invitation = searchParams.get('invitation');
+  const hintEmail = invitedEmailFromId(invitation);
 
   async function handleGoogle() {
     setError('');
     setLoading(true);
     try {
-      await loginWithGoogle();
+      await loginWithGoogle(hintEmail);
       if (invitation) {
-        navigate(`/accept-invite/${invitation}`, { replace: true });
+        navigate(`/accept-invite/${encodeURIComponent(invitation)}`, { replace: true });
       } else {
         navigate('/');
       }
@@ -55,7 +57,11 @@ export default function Login() {
           <div className="landing-cta">
             {error && <div className="auth-error" style={{ marginBottom: 12, maxWidth: 400 }}>{error}</div>}
             {invitation && (
-              <div className="auth-info" style={{ marginBottom: 12, maxWidth: 400 }}>Sign in to accept your collaboration invitation.</div>
+              <div className="auth-info" style={{ marginBottom: 12, maxWidth: 400 }}>
+                {hintEmail
+                  ? `Sign in as ${hintEmail} to accept your collaboration invitation.`
+                  : 'Sign in to accept your collaboration invitation.'}
+              </div>
             )}
             <button onClick={handleGoogle} className="btn btn-google btn-hero" disabled={loading}>
               {googleIcon}

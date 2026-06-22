@@ -3,6 +3,7 @@ import {
   inviteCollaborator,
   getCollaborators,
   getProjectInvitations,
+  getUserProfiles,
   removeCollaborator,
   cancelInvitation,
 } from '../firebase/sharing.js';
@@ -22,6 +23,8 @@ export default function ShareDialog({ projectId, project, onClose }) {
     loadData();
   }, [projectId]);
 
+  const [labelByUid, setLabelByUid] = useState({});
+
   async function loadData() {
     try {
       const [collabs, invites] = await Promise.all([
@@ -29,7 +32,24 @@ export default function ShareDialog({ projectId, project, onClose }) {
         getProjectInvitations(projectId),
       ]);
       setCollaborators(collabs);
-      setPendingInvites(invites);
+      setPendingInvites(invites.filter((inv) => inv.status === 'pending'));
+
+      // Resolve each collaborator uid to a human-readable label. Prefer their
+      // profile (email/name from users/{uid}); fall back to the email recorded
+      // on an accepted invitation for collaborators who predate that lookup.
+      const profiles = await getUserProfiles(Object.keys(collabs));
+      const labels = {};
+      for (const [uid, profile] of Object.entries(profiles)) {
+        labels[uid] = profile.displayName
+          ? `${profile.displayName} (${profile.email})`
+          : profile.email;
+      }
+      for (const inv of invites) {
+        if (inv.status === 'accepted' && inv.acceptedBy && !labels[inv.acceptedBy]) {
+          labels[inv.acceptedBy] = inv.invitedEmail;
+        }
+      }
+      setLabelByUid(labels);
     } catch (err) {
       console.error('Error loading share data:', err);
     }
@@ -116,7 +136,7 @@ export default function ShareDialog({ projectId, project, onClose }) {
             <h4>Collaborators</h4>
             {collabEntries.map(([uid, r]) => (
               <div key={uid} className="share-member">
-                <span className="share-member-id">{uid}</span>
+                <span className="share-member-id" title={uid}>{labelByUid[uid] || uid}</span>
                 <span className="share-member-role">{r}</span>
                 <button
                   className="btn btn-danger btn-sm"

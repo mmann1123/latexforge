@@ -2,10 +2,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Legacy user profile docs
+    // Reduce an email to its base domain (strip subdomains to the last two
+    // parts), mirroring baseDomainEmail() in src/firebase/sharing.js so that
+    // jane@cs.stanford.edu and jane@stanford.edu resolve to the same person.
+    function baseDomain(rawEmail) {
+      let email = rawEmail.lower();
+      let parts = email.split('@');
+      let domainParts = parts[1].split('\\.');
+      let n = domainParts.size();
+      return parts[0] + '@' + domainParts[n - 2] + '.' + domainParts[n - 1];
+    }
+
+    // User profile docs (uid -> email/displayName). Any authenticated user may
+    // read a profile so the share dialog can show collaborators by email/name
+    // instead of a raw uid. Only the owner may write their own profile.
     match /users/{userId} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId;
     }
 
     // Dynamic email allowlist for invited collaborators
@@ -45,16 +59,31 @@ service cloud.firestore {
             || projectData().collaborators[request.auth.uid] == 'editor';
       }
 
+      // True if a pending invitation for THIS project, addressed to the caller
+      // (base-domain match) and granting exactly `role`, exists. The invitation
+      // ID is the deterministic baseDomain(email)_projectId form, so the rule
+      // can look it up directly without a query.
+      function inviteGrants(role) {
+        let invId = baseDomain(request.auth.token.email) + '_' + projectId;
+        let invPath = /databases/$(database)/documents/invitations/$(invId);
+        return exists(invPath)
+            && get(invPath).data.projectId == projectId
+            && get(invPath).data.status == 'pending'
+            && get(invPath).data.role == role;
+      }
+
       allow read: if request.auth != null && canRead();
       // On create: must set ownerId to self
       allow create: if request.auth != null
                     && request.resource.data.ownerId == request.auth.uid;
-      // Allow update if user canWrite OR if they are accepting an invitation
-      // (adding only their own uid to the collaborators map)
+      // Allow update if user canWrite, OR if they are accepting an invitation:
+      // they may only add their own uid to the collaborators map, and only with
+      // the role granted by a matching pending invitation for this project.
       allow update: if request.auth != null
                     && (canWrite()
                         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['collaborators'])
-                            && request.resource.data.collaborators[request.auth.uid] in ['editor', 'viewer']));
+                            && request.resource.data.collaborators.diff(resource.data.collaborators).affectedKeys().hasOnly([request.auth.uid])
+                            && inviteGrants(request.resource.data.collaborators[request.auth.uid])));
       allow delete: if request.auth != null && isOwner();
 
       // Files subcollection
@@ -91,17 +120,47 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
-    // Invitations
+    // Invitations — scoped to a specific person and a specific project.
     match /invitations/{invitationId} {
-      allow create: if request.auth != null;
+      // True if the caller owns or can edit the given project.
+      function callerCanWriteProject(pid) {
+        let p = get(/databases/$(database)/documents/projects/$(pid)).data;
+        return request.auth.uid == p.ownerId
+            || p.collaborators[request.auth.uid] == 'editor';
+      }
+      // True if the caller is the intended invitee (flexible base-domain match).
+      function isInvitee() {
+        return baseDomain(resource.data.invitedEmail) == baseDomain(request.auth.token.email);
+      }
+
+      // Only a project owner/editor may create an invitation, the doc ID must be
+      // the deterministic baseDomain(email)_projectId form (binding it to one
+      // person + one project), and invitedBy must be the caller.
+      allow create: if request.auth != null
+                    && request.resource.data.invitedBy == request.auth.uid
+                    && invitationId == baseDomain(request.resource.data.invitedEmail) + '_' + request.resource.data.projectId
+                    && callerCanWriteProject(request.resource.data.projectId);
+
       allow read: if request.auth != null
-                  && (resource.data.invitedEmail == request.auth.token.email
-                  || resource.data.invitedBy == request.auth.uid);
+                  && (callerCanWriteProject(resource.data.projectId) || isInvitee());
+
+      // Project owners/editors manage the invitation (re-invite, change role).
+      // The invitee may only decline (status only) or accept (status +
+      // acceptedBy = their own uid) — never change their role or which project
+      // the invite is for.
       allow update: if request.auth != null
-                    && (resource.data.invitedEmail == request.auth.token.email
-                    || resource.data.invitedBy == request.auth.uid);
+                    && (callerCanWriteProject(resource.data.projectId)
+                        || (isInvitee()
+                            && (
+                                 (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+                                  && request.resource.data.status == 'declined')
+                              || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedBy'])
+                                  && request.resource.data.status == 'accepted'
+                                  && request.resource.data.acceptedBy == request.auth.uid)
+                            )));
+
       allow delete: if request.auth != null
-                    && resource.data.invitedBy == request.auth.uid;
+                    && callerCanWriteProject(resource.data.projectId);
     }
   }
 }

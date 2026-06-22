@@ -17,11 +17,13 @@ const mockGetProjectInvitations = vi.fn().mockResolvedValue([
 const mockInviteCollaborator = vi.fn().mockResolvedValue('new-inv-id');
 const mockRemoveCollaborator = vi.fn().mockResolvedValue();
 const mockCancelInvitation = vi.fn().mockResolvedValue();
+const mockGetUserProfiles = vi.fn().mockResolvedValue({});
 
 vi.mock('../firebase/sharing.js', () => ({
   inviteCollaborator: (...args) => mockInviteCollaborator(...args),
   getCollaborators: (...args) => mockGetCollaborators(...args),
   getProjectInvitations: (...args) => mockGetProjectInvitations(...args),
+  getUserProfiles: (...args) => mockGetUserProfiles(...args),
   removeCollaborator: (...args) => mockRemoveCollaborator(...args),
   cancelInvitation: (...args) => mockCancelInvitation(...args),
 }));
@@ -37,8 +39,9 @@ describe('ShareDialog', () => {
     vi.clearAllMocks();
     mockGetCollaborators.mockResolvedValue({ 'collab-1': 'editor' });
     mockGetProjectInvitations.mockResolvedValue([
-      { id: 'inv-1', invitedEmail: 'invited@example.com', role: 'viewer' },
+      { id: 'inv-1', invitedEmail: 'invited@example.com', role: 'viewer', status: 'pending' },
     ]);
+    mockGetUserProfiles.mockResolvedValue({});
   });
 
   it('renders the dialog with header', () => {
@@ -60,6 +63,17 @@ describe('ShareDialog', () => {
       expect(screen.getByText('collab-1')).toBeInTheDocument();
       expect(screen.getByText('editor')).toBeInTheDocument();
     });
+  });
+
+  it('shows collaborator email/name from profiles instead of the uid', async () => {
+    mockGetUserProfiles.mockResolvedValue({
+      'collab-1': { email: 'collab@example.com', displayName: 'Collab Person' },
+    });
+    render(<ShareDialog {...defaultProps} />);
+    await waitFor(() => {
+      expect(screen.getByText('Collab Person (collab@example.com)')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('collab-1')).not.toBeInTheDocument();
   });
 
   it('loads and displays pending invitations', async () => {

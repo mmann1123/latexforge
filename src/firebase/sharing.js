@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   addDoc,
+  setDoc,
   getDoc,
   getDocs,
   updateDoc,
@@ -32,8 +33,21 @@ export function baseDomainEmail(email) {
  * Check whether two emails refer to the same person by comparing their
  * username and base domain.
  */
-function emailsMatch(a, b) {
+export function emailsMatch(a, b) {
   return baseDomainEmail(a) === baseDomainEmail(b);
+}
+
+/**
+ * Recover the invited (base-domain) email from a deterministic invitation ID
+ * of the form `baseDomain(email)_projectId`. Firestore auto-IDs contain no
+ * underscore, so the invited email is everything before the last underscore.
+ * Returns '' for legacy random IDs that don't follow this scheme.
+ */
+export function invitedEmailFromId(invitationId) {
+  if (!invitationId) return '';
+  const sep = invitationId.lastIndexOf('_');
+  if (sep <= 0) return '';
+  return invitationId.slice(0, sep);
 }
 
 /**
@@ -44,8 +58,12 @@ export async function inviteCollaborator(projectId, projectName, invitedEmail, r
   const inviterName = invitedByUser.displayName || invitedByUser.email;
   const assignedRole = role || 'editor';
 
-  // Create invitation
-  const invRef = await addDoc(collection(db, 'invitations'), {
+  // Create invitation with a deterministic ID (baseDomain(email)_projectId) so
+  // it is bound to one person + one project. Firestore rules verify this ID
+  // before letting the invitee add themselves to the project. setDoc (not
+  // addDoc) means re-inviting the same person overwrites rather than duplicates.
+  const invitationId = `${baseDomainEmail(email)}_${projectId}`;
+  await setDoc(doc(db, 'invitations', invitationId), {
     projectId,
     projectName,
     invitedEmail: email,
@@ -57,7 +75,7 @@ export async function inviteCollaborator(projectId, projectName, invitedEmail, r
   });
 
   // Send invitation email via Firebase Trigger Email extension
-  const acceptUrl = `https://latexforge.web.app/accept-invite/${invRef.id}`;
+  const acceptUrl = `https://latexforge.web.app/accept-invite/${encodeURIComponent(invitationId)}`;
   await addDoc(collection(db, 'mail'), {
     to: email,
     message: {
@@ -91,7 +109,7 @@ export async function inviteCollaborator(projectId, projectName, invitedEmail, r
     },
   });
 
-  return invRef.id;
+  return invitationId;
 }
 
 /**
@@ -202,9 +220,11 @@ export async function acceptInvitation(invitationId, userId, userEmail) {
     [`collaborators.${userId}`]: inv.role,
   });
 
-  // Mark invitation as accepted
+  // Mark invitation as accepted, recording which uid accepted it so the share
+  // dialog can map the collaborator uid back to a human-readable email.
   await updateDoc(doc(db, 'invitations', invitationId), {
     status: 'accepted',
+    acceptedBy: userId,
   });
 }
 
@@ -228,6 +248,28 @@ export async function removeCollaborator(projectId, userId) {
 }
 
 /**
+ * Resolve a list of user uids to their profile info ({ email, displayName }),
+ * read from the users/{uid} docs written at login. Used by the share dialog to
+ * display collaborators by email/name instead of raw uid. Missing or
+ * unreadable profiles are skipped.
+ */
+export async function getUserProfiles(uids) {
+  const entries = await Promise.all(
+    uids.map(async (uid) => {
+      try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        if (!snap.exists()) return null;
+        const data = snap.data();
+        return [uid, { email: data.email || '', displayName: data.displayName || '' }];
+      } catch {
+        return null;
+      }
+    })
+  );
+  return Object.fromEntries(entries.filter(Boolean));
+}
+
+/**
  * Get the collaborators list for a project (from the project doc).
  */
 export async function getCollaborators(projectId) {
@@ -237,13 +279,14 @@ export async function getCollaborators(projectId) {
 }
 
 /**
- * Get sent invitations for a project (to show in share dialog).
+ * Get all invitations for a project (to show in the share dialog). Includes
+ * pending ones (shown as "Pending Invitations") and accepted ones (used to
+ * resolve a collaborator's uid back to their email for display).
  */
 export async function getProjectInvitations(projectId) {
   const q = query(
     collection(db, 'invitations'),
-    where('projectId', '==', projectId),
-    where('status', '==', 'pending')
+    where('projectId', '==', projectId)
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));

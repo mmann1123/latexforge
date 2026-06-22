@@ -58,9 +58,13 @@ export async function isEmailPermitted(email) {
   return false;
 }
 
-export async function loginWithGoogle() {
+export async function loginWithGoogle(hintEmail) {
   const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
+  // Always show the account chooser; when accepting an invitation, pre-suggest
+  // the invited address so the user picks the right Google account.
+  const params = { prompt: 'select_account' };
+  if (hintEmail) params.login_hint = hintEmail;
+  provider.setCustomParameters(params);
 
   _authCheckPromise = new Promise((resolve) => { _authResolve = resolve; });
 
